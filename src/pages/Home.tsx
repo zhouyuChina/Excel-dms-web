@@ -1,6 +1,7 @@
 import React from "react";
 import { Layout } from "@/components/layout";
 import { DataManagementPage } from "@/components/business/data-management/DataManagementPage";
+import { ExportCenterPage } from "@/components/business/export/ExportCenterPage";
 
 const Home: React.FC = () => {
   const [activeModule, setActiveModule] = React.useState("data-management");
@@ -12,6 +13,7 @@ const Home: React.FC = () => {
       onModuleChange={setActiveModule}
     >
       {activeModule === "data-management" && <DataManagementPage />}
+      {activeModule === "export-center" && <ExportCenterPage />}
     </Layout>
   );
 };
