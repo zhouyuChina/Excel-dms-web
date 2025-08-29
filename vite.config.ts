@@ -5,13 +5,15 @@ import path from "node:path";
 export default defineConfig({
   plugins: [react()],
   resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "src")
-    }
+    alias: { "@": path.resolve(__dirname, "src") }
   },
   server: {
+    host: true,        // 关键：监听 0.0.0.0
     port: 5173,
-    proxy: { "/api": "http://localhost:8080" }
+    strictPort: true,
+    proxy: { "/api": "http://127.0.0.1:8080" } // 本机后端建议写 127.0.0.1
   },
   build: { outDir: "dist" }
 });
+
+
