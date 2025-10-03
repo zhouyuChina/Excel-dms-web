@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Search, Plus, RotateCcw, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Edit2, Trash2, Download, Upload, Settings, Eye, RefreshCw, Split, Link, StickyNote } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,7 +11,8 @@ import {
   MergeDuplicatesModal, 
   MergeFieldsModal, 
   AddRemarksModal, 
-  CleanInvalidModal 
+  CleanInvalidModal,
+  ImportModal
 } from './components/modals';
 
 // interface RecordData {
@@ -41,6 +42,8 @@ export const DataManagementPage: React.FC = () => {
   const [pageSize, setPageSize] = useState(5);
   const [filterScrollIndex, setFilterScrollIndex] = useState(0);
   const [canScrollRight, setCanScrollRight] = useState(true);
+  const [maxOffsetPx, setMaxOffsetPx] = useState(0);
+  const [maxScrollIndex, setMaxScrollIndex] = useState(0);
   const [sortField, setSortField] = useState<string>('');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('asc');
   const [hasActiveFilters, setHasActiveFilters] = useState(false);
@@ -62,9 +65,15 @@ export const DataManagementPage: React.FC = () => {
   const [mergeFieldsModalOpen, setMergeFieldsModalOpen] = useState(false);
   const [addRemarksModalOpen, setAddRemarksModalOpen] = useState(false);
   const [cleanInvalidModalOpen, setCleanInvalidModalOpen] = useState(false);
+  const [importModalOpen, setImportModalOpen] = useState(false);
+  const importFileInputRef = useRef<HTMLInputElement | null>(null);
+  const [selectedImportFileName, setSelectedImportFileName] = useState<string>('');
   
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const lastTagRef = useRef<HTMLDivElement>(null);
+  const tagsStripRef = useRef<HTMLDivElement>(null);
+
+  const SCROLL_STEP_PX = 100;
 
   // 筛选标签 - 控制表格列显示
   const [filterTags, setFilterTags] = useState<FilterTag[]>(filterTagsData);
@@ -72,16 +81,16 @@ export const DataManagementPage: React.FC = () => {
   // 检测最后一个标签是否完全可见
   useEffect(() => {
     const checkLastTagVisibility = () => {
-      if (scrollContainerRef.current && lastTagRef.current) {
+      if (scrollContainerRef.current) {
         const container = scrollContainerRef.current;
-        const lastTag = lastTagRef.current;
-
-        const containerRect = container.getBoundingClientRect();
-        const lastTagRect = lastTag.getBoundingClientRect();
-
-        // 检查最后一个标签是否完全在容器内，留一点余量
-        const isFullyVisible = lastTagRect.right <= containerRect.right - 10;
-        setCanScrollRight(!isFullyVisible);
+        const containerWidth = container.clientWidth;
+        const contentWidth = tagsStripRef.current ? tagsStripRef.current.scrollWidth : 0;
+        const maxOffset = Math.max(0, contentWidth - containerWidth);
+        const computedMaxIndex = Math.max(0, Math.ceil(maxOffset / SCROLL_STEP_PX));
+        setMaxOffsetPx(maxOffset);
+        setMaxScrollIndex(computedMaxIndex);
+        const currentOffset = filterScrollIndex * SCROLL_STEP_PX;
+        setCanScrollRight(currentOffset < maxOffset);
       }
     };
 
@@ -91,7 +100,24 @@ export const DataManagementPage: React.FC = () => {
     // 监听窗口大小变化
     window.addEventListener('resize', checkLastTagVisibility);
     return () => window.removeEventListener('resize', checkLastTagVisibility);
-  }, [filterScrollIndex]);
+  }, [filterScrollIndex, filterTags]);
+
+  // 允許使用 Shift + 滑鼠滾輪 進行水平滾動（事件監聽版本，易維護且可阻止全域滾動）
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      if (!e.shiftKey) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const moveRight = e.deltaY > 0 || e.deltaX > 0;
+      setFilterScrollIndex(prev => (moveRight ? Math.min(maxScrollIndex, prev + 1) : Math.max(0, prev - 1)));
+    };
+
+    container.addEventListener('wheel', handleWheel, { passive: false });
+    return () => container.removeEventListener('wheel', handleWheel);
+  }, [maxScrollIndex]);
 
   // 检测是否有活跃的筛选条件
   useEffect(() => {
@@ -101,6 +127,29 @@ export const DataManagementPage: React.FC = () => {
 
   // 使用引入的模拟数据
   const records = recordsData;
+
+  const countries = useMemo(() => Array.from(new Set(records.map(r => r.country))), [records]);
+  const providers = useMemo(() => Array.from(new Set(records.map(r => r.provider))), [records]);
+
+  const handleOpenImportFilePicker = () => {
+    importFileInputRef.current?.click();
+  };
+
+  const handleImportFileChange: React.ChangeEventHandler<HTMLInputElement> = (e) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedImportFileName(file.name);
+      setImportModalOpen(true);
+    }
+  };
+
+  const handleCloseImportModal = () => {
+    setImportModalOpen(false);
+    setSelectedImportFileName('');
+    if (importFileInputRef.current) {
+      importFileInputRef.current.value = '';
+    }
+  };
 
   // 切换列显示状态
   const toggleColumnVisibility = (columnName: string) => {
@@ -301,7 +350,7 @@ export const DataManagementPage: React.FC = () => {
       {/* 搜索和筛选栏 */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex-1 max-w-md relative">
+          <div className="flex-1 max-w-* relative">
             <Input
               placeholder="輸入關鍵字搜尋資料..."
               value={searchTerm}
@@ -338,7 +387,7 @@ export const DataManagementPage: React.FC = () => {
             <button
               onClick={() => setFilterScrollIndex(Math.max(0, filterScrollIndex - 1))}
               disabled={filterScrollIndex === 0}
-              className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center justify-center w-8 h-8 rounded-md bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <ChevronLeft size={16} />
             </button>
@@ -346,8 +395,9 @@ export const DataManagementPage: React.FC = () => {
             {/* 标签容器 */}
             <div className="flex-1 overflow-hidden" ref={scrollContainerRef}>
               <div
+                ref={tagsStripRef}
                 className="flex gap-2 transition-transform duration-300"
-                style={{ transform: `translateX(-${filterScrollIndex * 100}px)` }}
+                style={{ transform: `translateX(-${Math.min(filterScrollIndex * SCROLL_STEP_PX, maxOffsetPx)}px)` }}
               >
                 {filterTags.map((tag, index) => (
                   <div
@@ -369,9 +419,9 @@ export const DataManagementPage: React.FC = () => {
 
             {/* 右滚动按钮 */}
             <button
-              onClick={() => setFilterScrollIndex(filterScrollIndex + 1)}
+              onClick={() => setFilterScrollIndex(Math.min(maxScrollIndex, filterScrollIndex + 1))}
               disabled={!canScrollRight}
-              className="flex items-center justify-center w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center justify-center w-8 h-8 rounded-md bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <ChevronRight size={16} />
             </button>
@@ -492,10 +542,17 @@ export const DataManagementPage: React.FC = () => {
               </SelectContent>
             </Select>
 
-            <Button variant="secondary" className="flex items-center gap-2">
+            <Button variant="secondary" className="flex items-center gap-2" onClick={handleOpenImportFilePicker}>
               <Download size={16} />
               匯入檔案
             </Button>
+            <input
+              ref={importFileInputRef}
+              type="file"
+              accept=".xlsx,.xls,.csv"
+              className="hidden"
+              onChange={handleImportFileChange}
+            />
 
             <Button 
               variant="secondary" 
@@ -736,6 +793,13 @@ export const DataManagementPage: React.FC = () => {
       <CleanInvalidModal 
         isOpen={cleanInvalidModalOpen} 
         onClose={() => setCleanInvalidModalOpen(false)} 
+      />
+      <ImportModal
+        isOpen={importModalOpen}
+        onClose={handleCloseImportModal}
+        fileName={selectedImportFileName}
+        countries={countries}
+        providers={providers}
       />
     </div>
   );

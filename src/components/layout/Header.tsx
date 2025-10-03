@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { useHealth } from '@/hooks/useHealth';
 
 interface HeaderProps {
   title: string;
@@ -70,6 +71,9 @@ export const Header: React.FC<HeaderProps> = ({ title }) => {
   const [openKey, setOpenKey] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // 健康檢查狀態（使用共用 hook）
+  const health = useHealth(0);
+
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (!containerRef.current) return;
@@ -81,27 +85,26 @@ export const Header: React.FC<HeaderProps> = ({ title }) => {
     return () => document.removeEventListener('click', handleClickOutside);
   }, []);
 
+  //（其餘 effect 保留；健康檢查改由 useHealth 管理）
+
   return (
-    <div className="bg-gray-800 text-white border-b border-gray-700">
+    <div className="bg-gray-50 text-foreground border-b border-gray-250">
       {/* 顶部标题栏和菜单栏 */}
-      <div className="bg-gray-800 px-6 py-2 flex items-center justify-between" ref={containerRef}>
-        <div className="flex items-center space-x-8">
+      <div className="bg-gray-50 px-6 py-2.5 flex items-center justify-between" ref={containerRef}>
+        <div className="flex items-center space-x-32"> 
           <div>
-            <h1 className="text-lg font-semibold text-white">
+            <h1 className="text-sm font-light select-none text-black">
               {title}
             </h1>
-            <p className="text-sm text-gray-300">
-              Powered by Excel Enterprise Data Management
-            </p>
           </div>
 
           {/* 菜单栏 */}
-          <div className="flex items-center space-x-2 relative">
+          <div className="flex items-center space-x-3 relative">
             {menus.map((menu) => (
               <div key={menu.key} className="relative">
                 <button
-                  className={`text-sm px-3 py-1 rounded hover:bg-gray-700 ${
-                    openKey === menu.key ? 'bg-gray-700' : ''
+                  className={`text-xs px-3 py-1 rounded-[var(--radius)] text-foreground bg-transparent hover:bg-accent hover:text-accent-foreground ${
+                    openKey === menu.key ? 'bg-accent text-accent-foreground' : ''
                   }`}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -112,13 +115,13 @@ export const Header: React.FC<HeaderProps> = ({ title }) => {
                 </button>
 
                 {openKey === menu.key && (
-                  <div className="absolute left-0 top-full mt-1 w-48 bg-white text-gray-800 dark:bg-gray-800 dark:text-gray-100 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50">
+                  <div className="absolute left-0 top-full px-1 mt-1 w-48 bg-popover text-popover-foreground border border-border rounded-[var(--radius)] shadow-lg z-50">
                     <div className="py-1">
                       {menu.items.map((item, idx) => (
                         <button
                           key={idx}
-                          className={`w-full px-3 py-2 text-left flex items-center justify-between hover:bg-gray-100 dark:hover:bg-gray-700 ${
-                            item.danger ? 'text-red-600 dark:text-red-400' : ''
+                          className={`w-full px-3 py-2 text-left flex rounded-[var(--radius)] hover:bg-accent/50 items-center justify-between hover:text-accent-foreground ${
+                            item.danger ? 'text-destructive' : ''
                           }`}
                           onClick={(e) => {
                             e.stopPropagation();
@@ -128,7 +131,7 @@ export const Header: React.FC<HeaderProps> = ({ title }) => {
                         >
                           <span className="text-sm">{item.label}</span>
                           {item.note && (
-                            <span className="text-xs bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-300 px-2 py-0.5 rounded-full">
+                            <span className="text-xs bg-accent text-accent-foreground px-2 py-0.5 rounded-full">
                               {item.note}
                             </span>
                           )}
@@ -143,9 +146,23 @@ export const Header: React.FC<HeaderProps> = ({ title }) => {
         </div>
 
         <div className="flex items-center space-x-2">
-          <div className="flex items-center space-x-2">
-            <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-            <span className="text-sm text-green-400">Online</span>
+          <div className="flex items-center">
+            {(() => {
+              const cfg =
+                health === 'loading'
+                  ? { bg: 'bg-gray-50', border: 'border-gray-300', text: 'text-gray-600', dot: 'bg-gray-400', label: '檢查中' }
+                  : health === 'online'
+                  ? { bg: 'bg-green-50', border: 'border-green-300', text: 'text-green-700', dot: 'bg-green-600', label: 'Online' }
+                  : health === 'db-issue'
+                  ? { bg: 'bg-yellow-50', border: 'border-yellow-300', text: 'text-yellow-700', dot: 'bg-yellow-600', label: '資料庫異常' }
+                  : { bg: 'bg-red-50', border: 'border-red-300', text: 'text-red-700', dot: 'bg-red-600', label: '離線' };
+              return (
+                <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full border select-none ${cfg.bg} ${cfg.border} ${cfg.text}`}>
+                  <span className={`w-2.5 h-2.5 rounded-full ${cfg.dot}`}></span>
+                  <span className="text-xs">{cfg.label}</span>
+                </div>
+              );
+            })()}
           </div>
         </div>
       </div>

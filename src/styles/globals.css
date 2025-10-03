@@ -4,25 +4,25 @@
 
 :root {
   --background: 0 0% 100%;
-  --foreground: 240 10% 3.9%;
+  --foreground: 233 17% 20%;
   --card: 0 0% 100%;
-  --card-foreground: 240 10% 3.9%;
+  --card-foreground: 233 17% 20%;
   --popover: 0 0% 100%;
-  --popover-foreground: 240 10% 3.9%;
-  --primary: 222.2 47.4% 11.2%;
-  --primary-foreground: 210 40% 98%;
+  --popover-foreground: 233 17% 20%;
+  --primary: 244 80% 4%;
+  --primary-foreground: 0 0% 100%;
   --secondary: 210 40% 96.1%;
   --secondary-foreground: 222.2 47.4% 11.2%;
   --muted: 210 40% 96.1%;
   --muted-foreground: 215.4 16.3% 46.9%;
-  --accent: 210 40% 96.1%;
-  --accent-foreground: 222.2 47.4% 11.2%;
-  --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 210 40% 98%;
-  --border: 214.3 31.8% 91.4%;
+  --accent: 220 20% 92%;
+  --accent-foreground: 244 80% 4%;
+  --destructive: 0 80% 60%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 0 0% 90%;
   --input: 214.3 31.8% 91.4%;
-  --ring: 222.2 84% 4.9%;
-  --radius: 0.75rem;
+  --ring: 0 0% 50%;
+  --radius: 0.525rem;
 }
 
 .dark {
@@ -44,7 +44,7 @@
   --destructive-foreground: 0 0% 98%;
   --border: 240 3.7% 15.9%;
   --input: 240 3.7% 15.9%;
-  --ring: 240 4.9% 83.9%;
+  --ring: 0 0% 46%;
 }
 
 * { border-color: hsl(var(--border)); }

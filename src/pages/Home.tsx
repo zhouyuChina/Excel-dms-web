@@ -14,7 +14,7 @@ const Home: React.FC = () => {
 
   return (
     <Layout
-      title="企業資料管理系統"
+      title="EXSELL DMS"
       activeModule={activeModule}
       onModuleChange={setActiveModule}
     >
