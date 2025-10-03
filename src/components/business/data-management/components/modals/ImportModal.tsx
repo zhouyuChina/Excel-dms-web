@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Lightbulb } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,8 +44,8 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, fileN
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+  return createPortal(
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000]">
       <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
         <div className="flex items-center justify-between mb-2">
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">設定匯入資料</h2>
@@ -110,7 +111,8 @@ export const ImportModal: React.FC<ImportModalProps> = ({ isOpen, onClose, fileN
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 

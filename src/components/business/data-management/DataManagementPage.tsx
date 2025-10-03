@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Search, Plus, RotateCcw, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Edit2, Trash2, Download, Upload, Settings, Eye, RefreshCw, Split, Link, StickyNote } from 'lucide-react';
+import { Search, Plus, RotateCcw, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, Edit2, Trash2, Download, Upload, Settings, Eye, EyeOff, RefreshCw, Split, Link, StickyNote } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -348,7 +348,7 @@ export const DataManagementPage: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* 搜索和筛选栏 */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-md shadow-none">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex-1 max-w-* relative">
             <Input
@@ -358,7 +358,7 @@ export const DataManagementPage: React.FC = () => {
                 setSearchTerm(e.target.value);
                 if (e.target.value) setHasActiveFilters(true);
               }}
-              className="pl-10"
+              className="pl-10 bg-gray-100 border-b border-gray-100"
             />
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
           </div>
@@ -387,7 +387,7 @@ export const DataManagementPage: React.FC = () => {
             <button
               onClick={() => setFilterScrollIndex(Math.max(0, filterScrollIndex - 1))}
               disabled={filterScrollIndex === 0}
-              className="flex items-center justify-center w-8 h-8 rounded-md bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center justify-center w-7 h-7 rounded-md bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <ChevronLeft size={16} />
             </button>
@@ -403,14 +403,17 @@ export const DataManagementPage: React.FC = () => {
                   <div
                     key={index}
                     ref={index === filterTags.length - 1 ? lastTagRef : null}
-                    className={`flex items-center gap-1 px-2 py-1 rounded text-sm cursor-pointer transition-colors whitespace-nowrap ${tag.visible
-                      ? 'bg-gray-100 dark:bg-gray-700'
-                      : 'bg-gray-50 dark:bg-gray-800 opacity-50'
+                    className={`flex items-center gap-1 px-2 py-1 rounded text-xs cursor-pointer transition-colors whitespace-nowrap ${tag.visible
+                      ? 'bg-gray-900 dark:bg-gray-200 text-white'
+                      : 'bg-gray-200 dark:bg-gray-900 opacity-50'
                       }`}
                     onClick={() => toggleColumnVisibility(tag.name)}
                   >
                     <span className={`w-2 h-2 rounded-full ${tag.color}`}></span>
-                    <Eye size={14} className="text-gray-500" />
+                     {tag.visible ? (
+                      <Eye size={14} className="text-gray-50" />) : (
+                      <EyeOff size={14} className="text-muted-foreground" />
+                     )}
                     <span>{tag.name}</span>
                   </div>
                 ))}
@@ -421,7 +424,7 @@ export const DataManagementPage: React.FC = () => {
             <button
               onClick={() => setFilterScrollIndex(Math.min(maxScrollIndex, filterScrollIndex + 1))}
               disabled={!canScrollRight}
-              className="flex items-center justify-center w-8 h-8 rounded-md bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center justify-center w-7 h-7 rounded-md bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <ChevronRight size={16} />
             </button>

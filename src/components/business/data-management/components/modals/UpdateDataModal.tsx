@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Upload, FileText, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+
+
 
 interface UpdateDataModalProps {
   isOpen: boolean;
@@ -31,8 +34,8 @@ export const UpdateDataModal: React.FC<UpdateDataModalProps> = ({ isOpen, onClos
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+  return createPortal(
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[10000]">
       <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -136,6 +139,7 @@ export const UpdateDataModal: React.FC<UpdateDataModalProps> = ({ isOpen, onClos
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

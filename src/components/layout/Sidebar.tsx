@@ -166,7 +166,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* 系统状态 */}
         {!collapsed && (
-          <div className="p-4 border-t border-gray-250">
+          <div className="sticky bottom-0 p-4 border-t border-gray-250">
             <h4 className="text-xs text-gray-500 mb-2">系統狀態</h4>
             <div className="space-y-1 text-sm">
               <div>資料行數：1,234</div>
