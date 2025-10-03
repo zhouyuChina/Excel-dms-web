@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -63,8 +64,8 @@ export const MergeFieldsModal: React.FC<MergeFieldsModalProps> = ({ isOpen, onCl
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+  return createPortal(
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[2147483647]">
       <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <div>
@@ -263,6 +264,7 @@ export const MergeFieldsModal: React.FC<MergeFieldsModalProps> = ({ isOpen, onCl
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
