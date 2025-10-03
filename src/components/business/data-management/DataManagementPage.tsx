@@ -433,8 +433,7 @@ export const DataManagementPage: React.FC = () => {
 
         {/* 筛选条件 */}
         {filterConditions.length > 0 && (
-          <div className="mt-4 p-4 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-            <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">篩選條件</h3>
+          <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">   
             <div className="space-y-3">
               {filterConditions.map((condition) => (
                 <div key={condition.id} className="flex items-center gap-3">
@@ -493,137 +492,135 @@ export const DataManagementPage: React.FC = () => {
         )}
       </div>
 
-      {/* 操作栏 */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center space-x-4">
-            <label className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                checked={limitLoad}
-                onChange={(e) => setLimitLoad(e.target.checked)}
-                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-              />
-              <span className="text-sm">限制載入筆數</span>
-            </label>
-
-            {limitLoad && (
-              <>
-                <span className="text-sm text-gray-500">筆數限制</span>
-                <Input
-                  type="number"
-                  placeholder="輸入數字"
-                  value={limitNumber}
-                  onChange={(e) => setLimitNumber(e.target.value)}
-                  className="w-32"
-                />
-                <span className="text-sm text-gray-500">抽樣模式</span>
-                <Select value={samplingMode} onValueChange={setSamplingMode}>
-                  <SelectTrigger className="w-auto min-w-32 px-3">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="順序選取">順序選取</SelectItem>
-                    <SelectItem value="隨機抽樣">隨機抽樣</SelectItem>
-                  </SelectContent>
-                </Select>
-              </>
-            )}
-
-            {!limitLoad && <span className="text-sm text-gray-500">顯示{pageSize}筆</span>}
-          </div>
-
-          <div className="flex items-center space-x-2">
-            <Select>
-              <SelectTrigger className="w-auto min-w-20 px-3">
-                <SelectValue placeholder="全部" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">全部</SelectItem>
-                <SelectItem value="exported">已匯出</SelectItem>
-                <SelectItem value="not-exported">未匯出</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Button variant="secondary" className="flex items-center gap-2" onClick={handleOpenImportFilePicker}>
-              <Download size={16} />
-              匯入檔案
-            </Button>
+      {/* 操作欄：僅保留限制載入筆數 */}
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-none p-4">
+        <div className="flex items-center space-x-4">
+          <label className="flex items-center space-x-2">
             <input
-              ref={importFileInputRef}
-              type="file"
-              accept=".xlsx,.xls,.csv"
-              className="hidden"
-              onChange={handleImportFileChange}
+              type="checkbox"
+              checked={limitLoad}
+              onChange={(e) => setLimitLoad(e.target.checked)}
+              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
             />
+            <span className="text-sm">限制載入筆數</span>
+          </label>
 
-            <Button 
-              variant="secondary" 
-              className="flex items-center gap-2"
-              onClick={() => setExportModalOpen(true)}
-            >
-              <Upload size={16} />
-              快速匯出
-            </Button>
+          {limitLoad && (
+            <>
+              <span className="text-sm text-gray-500">筆數限制</span>
+              <Input
+                type="number"
+                placeholder="輸入數字"
+                value={limitNumber}
+                onChange={(e) => setLimitNumber(e.target.value)}
+                className="w-32"
+              />
+              <span className="text-sm text-gray-500">抽樣模式</span>
+              <Select value={samplingMode} onValueChange={setSamplingMode}>
+                <SelectTrigger className="w-auto min-w-32 px-3">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="順序選取">順序選取</SelectItem>
+                  <SelectItem value="隨機抽樣">隨機抽樣</SelectItem>
+                </SelectContent>
+              </Select>
+            </>
+          )}
 
-            <div className="relative">
-              <Button 
-                variant="outline" 
-                className="flex items-center gap-2"
-                onClick={() => setToolMenuOpen(!toolMenuOpen)}
-              >
-                <Settings size={16} />
-                工具選單
-                <ChevronDown size={14} />
-              </Button>
-              {toolMenuOpen && (
-                <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50 min-w-32">
-                  <div className="py-1">
-                    <button 
-                      onClick={() => handleToolMenuSelect('update-data')}
-                      className="w-full px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 border-b border-gray-200 dark:border-gray-600"
-                    >
-                      <RefreshCw size={14} />
-                      更新資料
-                    </button>
-                    <button 
-                      onClick={() => handleToolMenuSelect('merge-duplicates')}
-                      className="w-full px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
-                    >
-                      <Split size={14} />
-                      合併重複
-                    </button>
-                    <button 
-                      onClick={() => handleToolMenuSelect('merge-fields')}
-                      className="w-full px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
-                    >
-                      <Link size={14} />
-                      合併欄位
-                    </button>
-                    <button 
-                      onClick={() => handleToolMenuSelect('add-remarks')}
-                      className="w-full px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
-                    >
-                      <StickyNote size={14} />
-                      添加備註
-                    </button>
-                    <button 
-                      onClick={() => handleToolMenuSelect('clean-invalid')}
-                      className="w-full px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
-                    >
-                      <Settings size={14} />
-                      清理無效
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
+          {!limitLoad && <span className="text-sm text-gray-500">顯示{pageSize}筆</span>}
         </div>
       </div>
 
-      {/* 数据表格 */}
+      {/* 數據表格 */}
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
+        {/* 表格工具列（視覺上與表格一體） */}
+        <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-end gap-2 bg-white dark:bg-gray-800 relative">
+          <Select>
+            <SelectTrigger className="w-auto min-w-20 px-3">
+              <SelectValue placeholder="全部" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">全部</SelectItem>
+              <SelectItem value="exported">已匯出</SelectItem>
+              <SelectItem value="not-exported">未匯出</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <Button variant="secondary" className="flex items-center gap-2" onClick={handleOpenImportFilePicker}>
+            <Download size={16} />
+            匯入檔案
+          </Button>
+          <input
+            ref={importFileInputRef}
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            className="hidden"
+            onChange={handleImportFileChange}
+          />
+
+          <Button 
+            variant="secondary" 
+            className="flex items-center gap-2"
+            onClick={() => setExportModalOpen(true)}
+          >
+            <Upload size={16} />
+            快速匯出
+          </Button>
+
+          <div className="relative">
+            <Button 
+              variant="outline" 
+              className="flex items-center gap-2"
+              onClick={() => setToolMenuOpen(!toolMenuOpen)}
+            >
+              <Settings size={16} />
+              工具選單
+              <ChevronDown size={14} />
+            </Button>
+            {toolMenuOpen && (
+              <div className="absolute top-full right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50 min-w-36">
+                <div className="py-1">
+                  <button 
+                    onClick={() => handleToolMenuSelect('update-data')}
+                    className="w-full px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 border-b border-gray-200 dark:border-gray-600"
+                  >
+                    <RefreshCw size={14} />
+                    更新資料
+                  </button>
+                  <button 
+                    onClick={() => handleToolMenuSelect('merge-duplicates')}
+                    className="w-full px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                  >
+                    <Split size={14} />
+                    合併重複
+                  </button>
+                  <button 
+                    onClick={() => handleToolMenuSelect('merge-fields')}
+                    className="w-full px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                  >
+                    <Link size={14} />
+                    合併欄位
+                  </button>
+                  <button 
+                    onClick={() => handleToolMenuSelect('add-remarks')}
+                    className="w-full px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                  >
+                    <StickyNote size={14} />
+                    添加備註
+                  </button>
+                  <button 
+                    onClick={() => handleToolMenuSelect('clean-invalid')}
+                    className="w-full px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
+                  >
+                    <Settings size={14} />
+                    清理無效
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full whitespace-nowrap">
             <thead className="bg-gray-100 dark:bg-gray-700">
