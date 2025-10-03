@@ -3,6 +3,8 @@ import { Search, Plus, RotateCcw, ChevronLeft, ChevronRight, ChevronDown, Chevro
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import { ArrowUpDown, ChevronsUpDown } from 'lucide-react';
 // import { Badge } from '@/components/ui/badge';
 import { recordsData, filterTagsData, type FilterTag } from '@/data/mockData';
 import { 
@@ -57,6 +59,7 @@ export const DataManagementPage: React.FC = () => {
   const [limitNumber, setLimitNumber] = useState<string>('');
   const [samplingMode, setSamplingMode] = useState<string>('順序選取');
   const [toolMenuOpen, setToolMenuOpen] = useState(false);
+  const [exportStatusFilter, setExportStatusFilter] = useState<'all' | 'exported' | 'not-exported'>('all');
   
   // 模态框状态
   const [exportModalOpen, setExportModalOpen] = useState(false);
@@ -131,6 +134,17 @@ export const DataManagementPage: React.FC = () => {
   const countries = useMemo(() => Array.from(new Set(records.map(r => r.country))), [records]);
   const providers = useMemo(() => Array.from(new Set(records.map(r => r.provider))), [records]);
 
+  // 依據工具列的「已匯出/未匯出/全部」選擇，計算符合條件的總筆數（不受分頁影響）
+  const filteredRecords = useMemo(() => {
+    let arr = records;
+    if (exportStatusFilter === 'exported') {
+      arr = arr.filter(r => !!r.exportRecord);
+    } else if (exportStatusFilter === 'not-exported') {
+      arr = arr.filter(r => !r.exportRecord);
+    }
+    return arr;
+  }, [records, exportStatusFilter]);
+
   const handleOpenImportFilePicker = () => {
     importFileInputRef.current?.click();
   };
@@ -182,6 +196,13 @@ export const DataManagementPage: React.FC = () => {
     ));
   };
 
+  // 批次刪除（示意：只清空已選清單；實作上可接後端 API）
+  const handleBulkDelete = () => {
+    if (selectedItems.length === 0) return;
+    // 這裡可以放實際刪除流程（含後端請求與成功後重新載入資料）
+    setSelectedItems([]);
+  };
+
   // 处理工具菜单选择
   const handleToolMenuSelect = (value: string) => {
     setToolMenuOpen(false);
@@ -221,22 +242,32 @@ export const DataManagementPage: React.FC = () => {
 
   // 处理排序
   const handleSort = (field: string) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
+    if (sortField !== field) {
+      // 第一次點該欄位：設定為升冪
       setSortField(field);
       setSortDirection('asc');
+      return;
     }
+    if (sortDirection === 'asc') {
+      // 第二次點同一欄位：改為降冪
+      setSortDirection('desc');
+      return;
+    }
+    // 第三次點同一欄位：取消排序（恢復預設順序）
+    setSortField('');
+    setSortDirection('asc');
   };
 
   // 获取排序图标
   const getSortIcon = (field: string) => {
     if (sortField !== field) {
-      return <ChevronDown size={14} className="text-gray-400" />;
+      // 未排序狀態：顯示灰色向下箭頭（提示可點擊排序）
+      return <ArrowUpDown size={14} className="text-gray-400" />;
     }
-    return sortDirection === 'asc'
-      ? <ChevronDown size={14} className="text-blue-600" />
-      : <ChevronUp size={14} className="text-blue-600" />;
+    if (sortDirection === 'asc') {
+      return <ChevronDown size={14} className="text-black" />;
+    }
+    return <ChevronUp size={14} className="text-black" />;
   };
 
   // 处理全选
@@ -363,7 +394,7 @@ export const DataManagementPage: React.FC = () => {
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={18} />
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="secondary" className="flex items-center gap-2" onClick={addFilterCondition}>
+            <Button variant="outline" className="flex items-center gap-2" onClick={addFilterCondition}>
               <Plus size={16} />
               新增篩選
             </Button>
@@ -493,14 +524,14 @@ export const DataManagementPage: React.FC = () => {
       </div>
 
       {/* 操作欄：僅保留限制載入筆數 */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-none p-4">
+      <div className="bg-white dark:bg-gray-800 rounded-[var(--radius)] border border-gray-200 dark:border-gray-700 shadow-none p-4">
         <div className="flex items-center space-x-4">
           <label className="flex items-center space-x-2">
             <input
               type="checkbox"
               checked={limitLoad}
               onChange={(e) => setLimitLoad(e.target.checked)}
-              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              className="rounded border-border accent-primary focus:ring-ring"
             />
             <span className="text-sm">限制載入筆數</span>
           </label>
@@ -513,11 +544,11 @@ export const DataManagementPage: React.FC = () => {
                 placeholder="輸入數字"
                 value={limitNumber}
                 onChange={(e) => setLimitNumber(e.target.value)}
-                className="w-32"
+                className="w-32 min-w-20 px-3 h-9 text-xs"
               />
               <span className="text-sm text-gray-500">抽樣模式</span>
               <Select value={samplingMode} onValueChange={setSamplingMode}>
-                <SelectTrigger className="w-auto min-w-32 px-3">
+                <SelectTrigger className="w-auto min-w-20 px-3 h-9 bg-gray-100 border border-gray-100 text-xs select-none">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -527,27 +558,46 @@ export const DataManagementPage: React.FC = () => {
               </Select>
             </>
           )}
-
-          {!limitLoad && <span className="text-sm text-gray-500">顯示{pageSize}筆</span>}
         </div>
       </div>
 
       {/* 數據表格 */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden py-2">
         {/* 表格工具列（視覺上與表格一體） */}
-        <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-end gap-2 bg-white dark:bg-gray-800 relative">
-          <Select>
-            <SelectTrigger className="w-auto min-w-20 px-3">
-              <SelectValue placeholder="全部" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部</SelectItem>
-              <SelectItem value="exported">已匯出</SelectItem>
-              <SelectItem value="not-exported">未匯出</SelectItem>
-            </SelectContent>
-          </Select>
+        <div className="px-7 py-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between gap-2 bg-white dark:bg-gray-800 relative -mt-1">
+          {/* 左側群組：顯示筆數 / 篩選提示 / 批次刪除 */}
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="text-xs text-gray-500 whitespace-nowrap">顯示 {pageData.length} 筆（符合 {filteredRecords.length} 筆）</span>
+            {exportStatusFilter !== 'all' && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-accent text-accent-foreground whitespace-nowrap">
+                篩選：{exportStatusFilter === 'exported' ? '已匯出' : '未匯出'}
+              </span>
+            )}
+            {selectedItems.length > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500 whitespace-nowrap">已選 {selectedItems.length} 筆</span>
+                <Button variant="destructive" size="sm" className="h-7 px-3" onClick={handleBulkDelete}>
+                  <Trash2 size={14} />
+                  <span className="ml-1 text-xs">刪除</span>
+                </Button>
+              </div>
+            )}
+          </div>
 
-          <Button variant="secondary" className="flex items-center gap-2" onClick={handleOpenImportFilePicker}>
+          {/* 右側群組：篩選 / 匯入 / 匯出 / 工具選單 */}
+          <div className="flex items-center gap-2">
+            <Select value={exportStatusFilter} onValueChange={(v) => setExportStatusFilter(v as any)}>
+              <SelectTrigger className="w-auto min-w-20 px-3 h-9 bg-gray-100 border border-gray-100 text-xs select-none">
+                <SelectValue placeholder="全部" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全部</SelectItem>
+                <SelectItem value="exported">已匯出</SelectItem>
+                <SelectItem value="not-exported">未匯出</SelectItem>
+              </SelectContent>
+            </Select>
+
+          <Button variant="outline" className="flex items-center gap-2 text-xs select-none" onClick={handleOpenImportFilePicker}>
             <Download size={16} />
             匯入檔案
           </Button>
@@ -560,83 +610,66 @@ export const DataManagementPage: React.FC = () => {
           />
 
           <Button 
-            variant="secondary" 
-            className="flex items-center gap-2"
+            variant="outline" 
+            className="flex items-center gap-2 text-xs bg-black text-white border-none select-none"
             onClick={() => setExportModalOpen(true)}
           >
             <Upload size={16} />
             快速匯出
           </Button>
 
-          <div className="relative">
-            <Button 
-              variant="outline" 
-              className="flex items-center gap-2"
-              onClick={() => setToolMenuOpen(!toolMenuOpen)}
-            >
-              <Settings size={16} />
-              工具選單
-              <ChevronDown size={14} />
-            </Button>
-            {toolMenuOpen && (
-              <div className="absolute top-full right-0 mt-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-md shadow-lg z-50 min-w-36">
-                <div className="py-1">
-                  <button 
-                    onClick={() => handleToolMenuSelect('update-data')}
-                    className="w-full px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2 border-b border-gray-200 dark:border-gray-600"
-                  >
-                    <RefreshCw size={14} />
-                    更新資料
-                  </button>
-                  <button 
-                    onClick={() => handleToolMenuSelect('merge-duplicates')}
-                    className="w-full px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
-                  >
-                    <Split size={14} />
-                    合併重複
-                  </button>
-                  <button 
-                    onClick={() => handleToolMenuSelect('merge-fields')}
-                    className="w-full px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
-                  >
-                    <Link size={14} />
-                    合併欄位
-                  </button>
-                  <button 
-                    onClick={() => handleToolMenuSelect('add-remarks')}
-                    className="w-full px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
-                  >
-                    <StickyNote size={14} />
-                    添加備註
-                  </button>
-                  <button 
-                    onClick={() => handleToolMenuSelect('clean-invalid')}
-                    className="w-full px-3 py-2 text-left hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center gap-2"
-                  >
-                    <Settings size={14} />
-                    清理無效
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+          <DropdownMenu open={toolMenuOpen} onOpenChange={setToolMenuOpen}>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" className="flex items-center gap-2 text-xs select-none">
+                <Settings size={16} />
+                工具選單
+                <ChevronDown size={14} />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="min-w-32">
+              <DropdownMenuItem onSelect={() => handleToolMenuSelect('update-data')} className="flex items-center gap-2 pl-3 ">
+                <RefreshCw size={14} />
+                更新資料
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => handleToolMenuSelect('merge-duplicates')} className="flex items-center gap-2 pl-3">
+                <Split size={14} />
+                合併重複
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => handleToolMenuSelect('merge-fields')} className="flex items-center gap-2 pl-3">
+                <Link size={14} />
+                合併欄位
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => handleToolMenuSelect('add-remarks')} className="flex items-center gap-2 pl-3">
+                <StickyNote size={14} />
+                添加備註
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => handleToolMenuSelect('clean-invalid')} className="flex items-center gap-2 pl-3">
+                <Settings size={14} />
+                清理無效
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full whitespace-nowrap">
-            <thead className="bg-gray-100 dark:bg-gray-700">
+            <thead className="bg-gray-100 dark:bg-gray-700 text-sm">
               <tr>
-                <th className="px-4 py-3 text-left w-10">
+                <th className="px-4 py-3 text-center w-10">
+                <div className="inline-flex items-center justify-center gap-2">
+                <span className="w-2 h-2 opacity-0" />
                   <input
                     type="checkbox"
                     checked={pageData.length > 0 && selectedItems.length === pageData.length}
                     onChange={handleSelectAll}
-                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                    className="rounded border-border accent-primary focus:ring-ring"
                   />
+                </div>
                 </th>
                 {filterTags.filter(tag => tag.visible).map((tag, index) => (
                   <th key={index} className="px-4 py-3 text-center">
                     <div
-                      className="flex items-center justify-center gap-1 cursor-pointer hover:text-blue-600 transition-colors"
+                      className="flex items-center justify-center gap-1 cursor-pointer hover:text-black transition-colors"
                       onClick={() => handleSort(tag.name)}
                     >
                       <span>{tag.name}</span>
@@ -644,27 +677,29 @@ export const DataManagementPage: React.FC = () => {
                     </div>
                   </th>
                 ))}
-                <th className="px-4 py-3 text-center sticky right-0 bg-gray-100 dark:bg-gray-700 z-10">操作</th>
+                <th className="px-4 py-3 text-center sticky right-0 bg-gray-100 dark:bg-gray-700 select-none z-10">操作</th>
               </tr>
             </thead>
             <tbody>
               {pageData.map((record) => (
-                <tr key={record.cuid} className="border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700/50">
-                  <td className="px-4 py-3">
+                <tr key={record.cuid} className="text-center border-t border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 text-sm">
+                 <td className="px-4 py-3 text-center">
+                  <div className="inline-flex items-center justify-center gap-2">
+                     <span
+                       className={`w-2 h-2 rounded-full ${record.isError ? 'bg-red-500' : 'opacity-0'}`}
+                     />
                     <input
                       type="checkbox"
                       checked={selectedItems.includes(record.cuid)}
                       onChange={() => handleSelectItem(record.cuid)}
-                      className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-                    />
+                      className="rounded border-border accent-primary focus:ring-ring"
+                      />
+                   </div>
                   </td>
                   {filterTags.filter(tag => tag.visible).map((tag, index) => (
                     <td key={index} className="px-4 py-3 whitespace-nowrap">
                       {tag.name === "CUID" && (
-                        <div className="flex items-center">
-                          {record.isError && (
-                            <span className="w-2 h-2 rounded-full bg-red-500 inline-block mr-2"></span>
-                          )}
+                        <div className="flex items-center justify-center">
                           {record.cuid}
                         </div>
                       )}
@@ -699,75 +734,78 @@ export const DataManagementPage: React.FC = () => {
             </tbody>
           </table>
         </div>
+        {/* 表格底部工具列（分頁控制，與表格一體） */}
+        <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-700 flex flex-col md:flex-row md:items-center justify-between bg-white dark:bg-gray-800">
+          <div className="flex items-center space-x-2 mt-2">
+            <span className="text-xs text-gray-500">每頁顯示</span>
+            <Select value={pageSize.toString()} onValueChange={(value) => setPageSize(Number(value))}>
+              <SelectTrigger className="w-auto min-w-20 px-3 h-7 bg-gray-100 border border-gray-100 text-xs select-none">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent side="top" sideOffset={4} className="min-w-16 select-none">
+                <SelectItem value="5">5</SelectItem>
+                <SelectItem value="10">10</SelectItem>
+                <SelectItem value="20">20</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+                <SelectItem value="100">100</SelectItem>
+              </SelectContent>
+            </Select>
+            <span className="text-xs text-gray-500">筆</span>
+          </div>
+
+          <div className="text-xs text-gray-500 mt-2">
+            顯示第 {(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, totalRecords)} 筆 , 共 {totalRecords} 筆資料
+          </div>
+
+          <div className="flex items-center space-x-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handlePageChange(1)}
+              disabled={currentPage === 1}
+              className="h-8 w-8 p-0 mt-2"
+            >
+              <ChevronLeft size={16} />
+              <ChevronLeft size={16} className="-ml-2" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handlePageChange(currentPage - 1)}
+              disabled={currentPage === 1}
+              className="h-8 w-8 p-0 mt-2"
+            >
+              <ChevronLeft size={16} />
+            </Button>
+
+            <span className="px-3 py-1 text-xs text-gray-500 mt-2">
+              第 {currentPage} 頁 , 共 {totalPages} 頁
+            </span>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handlePageChange(currentPage + 1)}
+              disabled={currentPage === totalPages}
+              className="h-8 w-8 p-0 mt-2"
+            >
+              <ChevronRight size={16} />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => handlePageChange(totalPages)}
+              disabled={currentPage === totalPages}
+              className="h-8 w-8 p-0 mt-2"
+            >
+              <ChevronRight size={16} />
+              <ChevronRight size={16} className="-ml-2" />
+            </Button>
+          </div>
+        </div>
       </div>
 
-      {/* 分页控制 */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center space-x-2">
-          <span className="text-sm text-gray-500">每頁顯示</span>
-          <Select value={pageSize.toString()} onValueChange={(value) => setPageSize(Number(value))}>
-            <SelectTrigger className="w-16">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="5">5</SelectItem>
-              <SelectItem value="10">10</SelectItem>
-              <SelectItem value="20">20</SelectItem>
-            </SelectContent>
-          </Select>
-          <span className="text-sm text-gray-500">筆</span>
-        </div>
-
-        <div className="text-sm text-gray-500">
-          顯示第{(currentPage - 1) * pageSize + 1}-{Math.min(currentPage * pageSize, totalRecords)}筆,共{totalRecords}筆資料
-        </div>
-
-        <div className="flex items-center space-x-1">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => handlePageChange(1)}
-            disabled={currentPage === 1}
-            className="h-8 w-8 p-0"
-          >
-            <ChevronLeft size={16} />
-            <ChevronLeft size={16} className="-ml-2" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => handlePageChange(currentPage - 1)}
-            disabled={currentPage === 1}
-            className="h-8 w-8 p-0"
-          >
-            <ChevronLeft size={16} />
-          </Button>
-
-          <span className="px-3 py-1 text-sm">
-            第{currentPage}頁,共{totalPages}頁
-          </span>
-
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => handlePageChange(currentPage + 1)}
-            disabled={currentPage === totalPages}
-            className="h-8 w-8 p-0"
-          >
-            <ChevronRight size={16} />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => handlePageChange(totalPages)}
-            disabled={currentPage === totalPages}
-            className="h-8 w-8 p-0"
-          >
-            <ChevronRight size={16} />
-            <ChevronRight size={16} className="-ml-2" />
-          </Button>
-        </div>
-      </div>
+      
 
       {/* 模态框组件 */}
       <ExportModal 

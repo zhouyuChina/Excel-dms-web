@@ -21,11 +21,11 @@
   --destructive-foreground: 0 0% 100%;
   --border: 0 0% 90%;
   --input: 214.3 31.8% 91.4%;
-  --ring: 0 0% 90%;
-  --radius: 0.525rem;
+  --ring: 0 0% 85%;
+  --radius: 0.625rem;
 }
 
-.dark {
+.dark { 
   --background: 240 10% 3.9%;
   --foreground: 0 0% 98%;
   --card: 240 10% 3.9%;
