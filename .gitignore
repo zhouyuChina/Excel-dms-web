@@ -4,3 +4,14 @@ dist/
 *.log
 .env
 .env.*
+
+# 打包產物
+build/
+vendor/
+
+# server
+server/node_modules/
+server/dist/
+server/.env
+server/.data/
+server/uploads/

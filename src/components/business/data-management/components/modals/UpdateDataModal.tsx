@@ -2,16 +2,20 @@ import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Upload, FileText, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { updateByFileJob } from '@/lib/dmsApi';
+import { toast } from 'sonner';
 
 
 
 interface UpdateDataModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onUpdated: () => void;
 }
 
-export const UpdateDataModal: React.FC<UpdateDataModalProps> = ({ isOpen, onClose }) => {
+export const UpdateDataModal: React.FC<UpdateDataModalProps> = ({ isOpen, onClose, onUpdated }) => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -30,6 +34,29 @@ export const UpdateDataModal: React.FC<UpdateDataModalProps> = ({ isOpen, onClos
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
+  };
+
+  const handleSubmit = async () => {
+    if (!selectedFile) {
+      toast.error('請先選擇檔案');
+      return;
+    }
+    setLoading(true);
+    try {
+      const result = await updateByFileJob(selectedFile);
+      if (result.status === 'completed') {
+        toast.success(`已更新 ${result.updatedCount} 筆`);
+        onUpdated();
+        onClose();
+        return;
+      }
+      const rows = result.errorRowNumbers.length
+        ? `（列: ${result.errorRowNumbers.slice(0, 8).join(", ")}${result.errorRowNumbers.length > 8 ? "..." : ""}）`
+        : "";
+      toast.error(`${result.primaryReason}${rows}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -121,7 +148,7 @@ export const UpdateDataModal: React.FC<UpdateDataModalProps> = ({ isOpen, onClos
                   </li>
                   <li className="flex items-start">
                     <span className="font-semibold mr-1">• 自動跳過無效資料:</span>
-                    缺少CUID或不存在的記錄將被自動跳過
+                    若有無效列（缺 CUID / CUID 不存在）將整批失敗，不會部分寫入
                   </li>
                 </ul>
               </div>
@@ -131,12 +158,15 @@ export const UpdateDataModal: React.FC<UpdateDataModalProps> = ({ isOpen, onClos
 
         {/* 底部按钮 */}
         <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-          <div className="text-sm text-gray-500 dark:text-gray-400">
-            步驟 1/4
+          <div className="text-sm text-gray-500 dark:text-gray-400">僅更新既有資料，空白不覆蓋</div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={onClose} disabled={loading}>
+              取消
+            </Button>
+            <Button onClick={() => void handleSubmit()} disabled={loading || !selectedFile} className="bg-gray-900 hover:bg-gray-800 text-white">
+              {loading ? '更新中…' : '開始更新'}
+            </Button>
           </div>
-          <Button variant="outline" onClick={onClose}>
-            取消
-          </Button>
         </div>
       </div>
     </div>,

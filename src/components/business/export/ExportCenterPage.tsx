@@ -1,93 +1,144 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Settings, Download, Eye, Trash2, FileText, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-
-interface ExportRecord {
-  id: string;
-  fileName: string;
-  fileType: string;
-  createdDate: string;
-  createdTime: string;
-  status: 'completed' | 'processing' | 'failed';
-  totalRows: number;
-  fileSize: string;
-  creator: string;
-  year: string;
-  month: string;
-  columns: string;
-}
-
-const mockExportRecords: ExportRecord[] = [
-  {
-    id: '1',
-    fileName: '員工資料_2024-03-01.xlsx',
-    fileType: 'Excel',
-    createdDate: '2024-03-01',
-    createdTime: '10:30',
-    status: 'completed',
-    totalRows: 125,
-    fileSize: '4.2MB',
-    creator: '人資部王某',
-    year: '2024',
-    month: '03',
-    columns: '姓名, 年齡, 部位, +1'
-  },
-  {
-    id: '2',
-    fileName: '匯出進行中.csv',
-    fileType: 'CSV',
-    createdDate: '2024-03-01',
-    createdTime: '16:20',
-    status: 'processing',
-    totalRows: 3,
-    fileSize: '專案經理',
-    creator: '專案經理',
-    year: '2024',
-    month: '03',
-    columns: '姓名, 年齡, 部位'
-  }
-];
+import {
+  fetchExportList,
+  deleteExportJob,
+  exportDownloadUrl,
+  fetchJobResult,
+  jobResultFileDownloadUrl,
+  type ExportListItem,
+} from '@/lib/dmsApi';
+import { toast } from 'sonner';
+import {
+  fetchUnifiedTasksWithFilter,
+  retryTaskIfExport,
+  type UnifiedTaskItem,
+} from '@/lib/jobCenter';
 
 export const ExportCenterPage: React.FC = () => {
   const [quickExportFormat, setQuickExportFormat] = useState('Excel');
   const [includeDate, setIncludeDate] = useState(true);
   const [includeHistory, setIncludeHistory] = useState(true);
   const [showRecords, setShowRecords] = useState(true);
-  const [records] = useState(mockExportRecords);
+  const [records, setRecords] = useState<ExportListItem[]>([]);
+  const [exportTasks, setExportTasks] = useState<UnifiedTaskItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showRefreshMessage, setShowRefreshMessage] = useState(false);
+  const [retryingTaskId, setRetryingTaskId] = useState<string | null>(null);
+  const [expandedTaskId, setExpandedTaskId] = useState<string | null>(null);
+  const [taskFiles, setTaskFiles] = useState<Record<string, Array<{ fileName: string; rowCount?: number; part?: number }>>>({});
+  const [loadingTaskFilesId, setLoadingTaskFilesId] = useState<string | null>(null);
 
-  // 统计数据
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [{ items }, tasks] = await Promise.all([
+        fetchExportList(),
+        fetchUnifiedTasksWithFilter({
+          limit: 100,
+          source: "export",
+          status: "all",
+        }),
+      ]);
+      setRecords(items);
+      setExportTasks(tasks);
+    } catch {
+      toast.error('無法載入匯出紀錄');
+      setRecords([]);
+      setExportTasks([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const inProgressCount = exportTasks.filter((x) => x.status === "queued" || x.status === "processing").length;
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      void load();
+    }, inProgressCount > 0 ? 1500 : 5000);
+    return () => window.clearInterval(timer);
+  }, [inProgressCount, load]);
+
   const stats = {
-    completed: records.filter(r => r.status === 'completed').length,
-    processing: records.filter(r => r.status === 'processing').length,
-    totalExports: records.reduce((sum, r) => sum + r.totalRows, 0),
+    completed: records.length,
+    processing: 0,
+    totalExports: records.reduce((sum, r) => sum + r.rowCount, 0),
     totalFiles: records.length,
-    totalSize: '3.1MB',
-    totalRows: records.filter(r => r.status === 'completed').reduce((sum, r) => sum + r.totalRows, 0)
+    totalSize: '—',
+    totalRows: records.reduce((sum, r) => sum + r.rowCount, 0)
   };
 
   const handleSaveSettings = () => {
-    console.log('Saving export settings:', {
-      format: quickExportFormat,
-      includeDate,
-      includeHistory,
-      showRecords
-    });
+    toast.message('設定已儲存（本機偏好，後續可接 API）');
   };
 
-  const handleExportAction = (action: string, recordId?: string) => {
-    console.log(`Action: ${action}`, recordId ? `Record ID: ${recordId}` : '');
+  const handleExportAction = async (action: string, recordId?: string) => {
+    if (action === 'download' && recordId) {
+      window.open(exportDownloadUrl(recordId), '_blank', 'noopener,noreferrer');
+      return;
+    }
+    if (action === 'delete' && recordId) {
+      if (!window.confirm('刪除此匯出紀錄？將一併解除相關客戶的匯出標記（若無其他匯出）。')) return;
+      try {
+        await deleteExportJob(recordId);
+        toast.success('已刪除');
+        void load();
+      } catch {
+        toast.error('刪除失敗');
+      }
+      return;
+    }
+    if (action === 'view' && recordId) {
+      window.open(exportDownloadUrl(recordId), '_blank', 'noopener,noreferrer');
+    }
   };
 
   const handleRefresh = () => {
+    void load();
     setShowRefreshMessage(true);
-    // 3秒后自动隐藏提示
-    setTimeout(() => {
-      setShowRefreshMessage(false);
-    }, 3000);
+    setTimeout(() => setShowRefreshMessage(false), 2000);
+  };
+
+  const handleRetryExport = async (task: UnifiedTaskItem) => {
+    if (!(task.source === "export" && task.status === "failed")) return;
+    try {
+      setRetryingTaskId(task.id);
+      await retryTaskIfExport(task);
+      toast.success("已送出匯出重試");
+      await load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "匯出重試失敗");
+    } finally {
+      setRetryingTaskId(null);
+    }
+  };
+
+  const handleToggleTaskFiles = async (task: UnifiedTaskItem) => {
+    if (expandedTaskId === task.id) {
+      setExpandedTaskId(null);
+      return;
+    }
+    setExpandedTaskId(task.id);
+    if (taskFiles[task.id]) return;
+    try {
+      setLoadingTaskFilesId(task.id);
+      const result = await fetchJobResult(task.id);
+      const files = Array.isArray(result.result?.files) ? result.result.files : [];
+      setTaskFiles((prev) => ({ ...prev, [task.id]: files }));
+    } catch {
+      toast.error("無法讀取分檔清單");
+    } finally {
+      setLoadingTaskFilesId(null);
+    }
   };
 
   return (
@@ -218,7 +269,7 @@ export const ExportCenterPage: React.FC = () => {
             {showRefreshMessage && (
               <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2">
                 <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                <span className="text-sm text-blue-700">顯示範圍：全部 （2 筆記錄）</span>
+                <span className="text-sm text-blue-700">顯示範圍：全部 （{records.length} 筆記錄）</span>
               </div>
             )}
           </div>
@@ -257,8 +308,143 @@ export const ExportCenterPage: React.FC = () => {
         <div className="p-4 border-b">
           <h2 className="text-lg font-semibold">匯出記錄</h2>
         </div>
+        <div className="p-4 border-b bg-gray-50/60">
+          <div className="text-sm font-medium text-gray-800 mb-2">任務狀態（含排隊 / 進行中）</div>
+          {exportTasks.length === 0 ? (
+            <div className="text-xs text-gray-500">目前沒有匯出任務</div>
+          ) : (
+            <div className="space-y-2">
+              {exportTasks.slice(0, 6).map((task) => {
+                const percent =
+                  task.totalRows > 0
+                    ? Math.min(100, Math.floor((task.processedRows / task.totalRows) * 100))
+                    : task.status === "completed"
+                      ? 100
+                      : task.status === "failed"
+                        ? 0
+                        : 12;
+                const statusText =
+                  task.status === "queued"
+                    ? "排隊中"
+                    : task.status === "processing"
+                      ? "進行中"
+                      : task.status === "completed"
+                        ? "已完成"
+                        : "失敗";
+                return (
+                  <div key={task.id} className="rounded border bg-white p-2">
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <div className="font-medium truncate">{task.title}</div>
+                      <div className="text-gray-600">{statusText}</div>
+                    </div>
+                    <div className="mt-1 h-1.5 bg-gray-200 rounded overflow-hidden">
+                      <div className="h-full bg-blue-600" style={{ width: `${percent}%` }} />
+                    </div>
+                    {(task.status === "queued" && (task.queuePosition || task.estimatedWaitSec)) && (
+                      <div className="mt-1 text-[11px] text-gray-500">
+                        排隊#{task.queuePosition || "?"} · 約{task.estimatedWaitSec || 0}s
+                      </div>
+                    )}
+                    {task.status === "failed" && (
+                      <div className="mt-1">
+                        <button
+                          className="text-[11px] text-blue-700 hover:underline disabled:opacity-60"
+                          disabled={retryingTaskId === task.id}
+                          onClick={() => void handleRetryExport(task)}
+                        >
+                          {retryingTaskId === task.id ? "重試中…" : "重試匯出"}
+                        </button>
+                      </div>
+                    )}
+                    {task.status === "completed" && (
+                      <div className="mt-1 flex items-center gap-3 text-[11px]">
+                        <button
+                          className="text-blue-700 hover:underline"
+                          onClick={() => void handleToggleTaskFiles(task)}
+                        >
+                          {expandedTaskId === task.id ? "收合分檔" : "查看分檔"}
+                        </button>
+                        <button
+                          className="text-blue-700 hover:underline"
+                          onClick={() => {
+                            void (async () => {
+                              try {
+                                const result = await fetchJobResult(task.id);
+                                const files = Array.isArray(result.result?.files) ? result.result.files : [];
+                                if (files.length > 0) {
+                                  for (const f of files) {
+                                    const fileName = String(f.fileName || "").trim();
+                                    if (!fileName) continue;
+                                    window.open(
+                                      jobResultFileDownloadUrl(task.id, fileName),
+                                      "_blank",
+                                      "noopener,noreferrer"
+                                    );
+                                  }
+                                  return;
+                                }
+                                const exportId = String(result.result?.exportId || "").trim();
+                                if (!exportId) {
+                                  toast.error("找不到可下載檔案");
+                                  return;
+                                }
+                                window.open(exportDownloadUrl(exportId), "_blank", "noopener,noreferrer");
+                              } catch (e) {
+                                toast.error(e instanceof Error ? e.message : "下載失敗");
+                              }
+                            })();
+                          }}
+                        >
+                          全部下載
+                        </button>
+                      </div>
+                    )}
+                    {expandedTaskId === task.id && (
+                      <div className="mt-2 rounded border bg-gray-50 p-2">
+                        {loadingTaskFilesId === task.id ? (
+                          <div className="text-[11px] text-gray-500">讀取分檔中…</div>
+                        ) : (taskFiles[task.id] || []).length === 0 ? (
+                          <div className="text-[11px] text-gray-500">單檔任務或暫無分檔資訊</div>
+                        ) : (
+                          <div className="space-y-1">
+                            {taskFiles[task.id]!.map((file) => (
+                              <div key={file.fileName} className="flex items-center justify-between gap-2 text-[11px]">
+                                <div className="truncate">
+                                  Part {file.part || "?"} · {file.fileName} · {file.rowCount ?? 0} rows
+                                </div>
+                                <button
+                                  className="text-blue-700 hover:underline shrink-0"
+                                  onClick={() =>
+                                    window.open(
+                                      jobResultFileDownloadUrl(task.id, file.fileName),
+                                      "_blank",
+                                      "noopener,noreferrer"
+                                    )
+                                  }
+                                >
+                                  下載
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
         <div className="divide-y">
-          {records.map((record) => (
+          {loading && (
+            <div className="p-8 text-center text-sm text-gray-500">載入中…</div>
+          )}
+          {!loading && records.length === 0 && (
+            <div className="p-8 text-center text-sm text-gray-500">尚無匯出紀錄</div>
+          )}
+          {!loading &&
+            records.map((record) => (
             <div key={record.id} className="p-4">
               <div className="flex items-start justify-between">
                 <div className="flex items-start gap-3">
@@ -268,52 +454,34 @@ export const ExportCenterPage: React.FC = () => {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <h3 className="font-medium text-gray-900">{record.fileName}</h3>
-                      <Badge
-                        variant={record.fileType === 'Excel' ? 'default' : 'secondary'}
-                        className={record.fileType === 'Excel' ? 'bg-green-600' : ''}
-                      >
-                        {record.fileType}
-                      </Badge>
+                      <Badge variant="secondary">CSV</Badge>
                     </div>
                     <div className="text-sm text-gray-500 space-y-1">
-                      <div>{record.createdDate} {record.createdTime} • {record.totalRows} 個位 • {record.fileSize}</div>
-                      <div>接收者: {record.creator} 維護: {record.year}年{record.month}日</div>
-                      <div className="flex items-center gap-1">
-                        <span>{record.columns}</span>
+                      <div>
+                        {new Date(record.createdAt).toLocaleString('zh-TW')} • {record.rowCount} 筆
+                      </div>
+                      <div>
+                        接收者: {record.recipient || '—'}{' '}
+                        {record.remarks ? `• 備註: ${record.remarks}` : ''}
                       </div>
                     </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 ml-4">
-                  {record.status === 'completed' && (
-                    <Badge variant="secondary" className="bg-green-50 text-green-700">
-                      已完成
-                    </Badge>
-                  )}
-                  {record.status === 'processing' && (
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary" className="bg-blue-50 text-blue-700">
-                        進行中
-                      </Badge>
-                      <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div className="h-full bg-gray-800 rounded-full animate-pulse" style={{ width: '60%' }}></div>
-                      </div>
-                    </div>
-                  )}
-                  {record.status !== 'processing' && (
-                    <div>
-                      <Button variant="ghost" size="sm" onClick={() => handleExportAction('view', record.id)}>
-                        <Eye className="w-4 h-4 mr-1" />查看資料
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleExportAction('download', record.id)}>
-                        <Download className="w-4 h-4 mr-1" />下載
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleExportAction('delete', record.id)}>
-                        <Trash2 className="w-4 h-4 mr-1" />刪除
-                      </Button>
-                    </div>
-                  )}
-
+                  <Badge variant="secondary" className="bg-green-50 text-green-700">
+                    已完成
+                  </Badge>
+                  <div>
+                    <Button variant="ghost" size="sm" onClick={() => handleExportAction('view', record.id)}>
+                      <Eye className="w-4 h-4 mr-1" />查看
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => handleExportAction('download', record.id)}>
+                      <Download className="w-4 h-4 mr-1" />下載
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => handleExportAction('delete', record.id)}>
+                      <Trash2 className="w-4 h-4 mr-1" />刪除
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>

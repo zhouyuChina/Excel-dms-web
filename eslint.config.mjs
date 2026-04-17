@@ -1,7 +1,7 @@
 import tseslint from "typescript-eslint";
 import react from "@eslint-react/eslint-plugin";
 export default [
-  { ignores: ["dist/**"] },
+  { ignores: ["dist/**", "server/dist/**"] },
   ...tseslint.configs.recommended,
   {
     files: ["**/*.{ts,tsx}"],

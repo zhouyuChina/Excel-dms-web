@@ -2,6 +2,18 @@
 
 一個基於 React + TypeScript + Tailwind CSS 的現代化企業資料管理系統，提供完整的資料管理、篩選、匯入匯出等功能。
 
+## 相關文件
+
+- **[資料管理與欄位管理 — 功能盤點與後端實作方案](docs/DATA_FIELD_MANAGEMENT_IMPLEMENTATION.md)**：從現有 UI 反查功能、建議 API／資料表與實作順序（MVP 對後端對接用）。
+- **[補齊任務清單](docs/BACKLOG.md)**：按 P0～P3 與建議衝刺順序，對齊按鈕與業務流程。
+- **[後端 API（MVP）](server/README.md)**：`docker compose`、Prisma、`npm run dev:api` 與已實作端點。
+
+### 同時跑前端與後端
+
+1. 依 `server/README.md` 啟動 PostgreSQL 並執行 `npx prisma db push` 與 `db seed`。
+2. 終端機 A：`npm run dev:api`（埠 8080）
+3. 終端機 B：`npm run dev`（埠 5173，會將 `/api` 代理到 8080）
+
 ## 技術棧
 
 - **前端框架**: React 18

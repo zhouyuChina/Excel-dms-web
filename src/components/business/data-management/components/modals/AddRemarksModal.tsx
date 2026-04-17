@@ -4,25 +4,57 @@ import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { toast } from 'sonner';
+import { addRemarksJob, type CustomerFilterSnapshot } from '@/lib/dmsApi';
 
 interface AddRemarksModalProps {
   isOpen: boolean;
   onClose: () => void;
+  selectedCuids: string[];
+  filteredCount: number | null;
+  filterSnapshot: CustomerFilterSnapshot;
+  onAdded: () => void;
 }
 
-export const AddRemarksModal: React.FC<AddRemarksModalProps> = ({ isOpen, onClose }) => {
+export const AddRemarksModal: React.FC<AddRemarksModalProps> = ({
+  isOpen,
+  onClose,
+  selectedCuids,
+  filteredCount,
+  filterSnapshot,
+  onAdded,
+}) => {
   const [targetData, setTargetData] = useState('filtered');
   const [fieldName, setFieldName] = useState('備註');
   const [remarkContent, setRemarkContent] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleAdd = () => {
-    // 模拟添加备注操作
-    console.log('添加備註欄位:', {
-      targetData,
-      fieldName,
-      remarkContent
-    });
-    onClose();
+  const handleAdd = async () => {
+    if (!fieldName.trim()) {
+      toast.error('請輸入欄位名稱');
+      return;
+    }
+    if (targetData === 'selected' && selectedCuids.length === 0) {
+      toast.error('目前沒有勾選資料');
+      return;
+    }
+    setLoading(true);
+    try {
+      const result = await addRemarksJob({
+        target: targetData as "selected" | "filtered" | "all",
+        cuids: targetData === "selected" ? selectedCuids : undefined,
+        filterSnapshot: targetData === "all" ? undefined : filterSnapshot,
+        fieldName: fieldName.trim(),
+        remarkContent: remarkContent.trim(),
+      });
+      toast.success(`已更新 ${result.updated} 筆`);
+      onAdded();
+      onClose();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : '添加備註失敗');
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -53,9 +85,11 @@ export const AddRemarksModal: React.FC<AddRemarksModalProps> = ({ isOpen, onClos
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="filtered">篩選出的資料 (6筆)</SelectItem>
+                <SelectItem value="filtered">
+                  篩選出的資料（{filteredCount === null ? "筆數未即時計算" : `${filteredCount} 筆`}）
+                </SelectItem>
                 <SelectItem value="all">所有資料</SelectItem>
-                <SelectItem value="selected">選中的資料</SelectItem>
+                <SelectItem value="selected">選中的資料 ({selectedCuids.length}筆)</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -90,11 +124,11 @@ export const AddRemarksModal: React.FC<AddRemarksModalProps> = ({ isOpen, onClos
 
         {/* 底部按钮 */}
         <div className="flex justify-between mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
-          <Button variant="outline" onClick={onClose}>
+          <Button variant="outline" onClick={onClose} disabled={loading}>
             取消
           </Button>
-          <Button onClick={handleAdd} className="bg-gray-900 hover:bg-gray-800 text-white">
-            確定添加
+          <Button onClick={() => void handleAdd()} className="bg-gray-900 hover:bg-gray-800 text-white" disabled={loading}>
+            {loading ? '處理中…' : '確定添加'}
           </Button>
         </div>
       </div>

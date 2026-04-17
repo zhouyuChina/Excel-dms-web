@@ -1,0 +1,46 @@
+{
+  "name": "dms-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "worker:dev": "cross-env JOB_EXECUTION_MODE=worker tsx watch src/worker.ts",
+    "worker:start": "cross-env JOB_EXECUTION_MODE=worker node dist/worker.js",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.tools.json --noEmit",
+    "build": "npm run typecheck && tsc",
+    "start": "node dist/index.js",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:push": "prisma db push",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:seed:reset-fields": "cross-env SEED_RESET_FIELDS=1 tsx prisma/seed.ts",
+    "perf:loadtest": "tsx scripts/loadtest.ts",
+    "db:bulk-customers": "tsx scripts/bulk-seed-customers.ts",
+    "partition:drill": "tsx scripts/partition-drill.ts",
+    "backup:pg-dump": "tsx scripts/pg-dump-backup.ts",
+    "field-promotion:drift-check": "tsx scripts/field-promotion-drift-check.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.3.0",
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "multer": "^1.4.5-lts.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "cross-env": "^10.0.0",
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/multer": "^1.4.12",
+    "@types/node": "^22.10.5",
+    "prisma": "^6.3.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

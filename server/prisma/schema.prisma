@@ -1,0 +1,186 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// 客戶主檔：固定核心欄位 + attrs 擴充動態欄位（JSON）
+/// 唯一性：同一「國家 + 電話（僅數字正規化）」視為同一客戶；CUID 由此二者衍生。
+model Customer {
+  cuid           String   @id
+  country        String
+  /// 畫面／匯入原始字串（可含國碼、空格、括號）
+  phone          String
+  /// 與國家組合唯一：電話僅保留數字，國別決定格式語意（匯入時一併校驗）
+  phoneNormalized String
+  provider       String
+  name           String
+  englishName    String   @default("")
+  age            Int      @default(0)
+  birthDate      String   @default("")
+  position       String   @default("")
+  salary         Int      @default(0)
+  email          String   @default("")
+  department     String   @default("")
+  importRecord   String   @default("")
+  /// 有值表示曾匯出（顯示用字串，可為日期或摘要）
+  exportRecord   String   @default("")
+  recipient      String   @default("")
+  isError        Boolean  @default(false)
+  /// 最新備註內容（讀模型，避免查詢時掃描 remark events）
+  remarkLatest   String   @default("")
+  /// 最新備註時間（讀模型）
+  remarkUpdatedAt DateTime?
+  attrs          Json     @default("{}")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  exportMarks CustomerExportMark[]
+  remarkEvents RemarkEvent[]
+
+  @@unique([country, phoneNormalized])
+  @@index([updatedAt, cuid])
+  @@index([country, updatedAt, cuid])
+  @@index([provider, updatedAt, cuid])
+  @@index([phoneNormalized])
+  @@index([name, updatedAt, cuid])
+  @@index([email, updatedAt, cuid])
+}
+
+/// 匯出紀錄：一筆匯出任務
+model ExportJob {
+  id             String   @id @default(cuid())
+  recipient      String
+  remarks        String   @default("")
+  fileName       String
+  filePath       String
+  rowCount       Int
+  filterSnapshot Json
+  createdAt      DateTime @default(now())
+  marks          CustomerExportMark[]
+}
+
+/// 客戶與匯出任務關聯（用於「已匯出」篩選與刪除匯出後解除標記）
+model CustomerExportMark {
+  exportJobId String
+  cuid        String
+  exportJob   ExportJob @relation(fields: [exportJobId], references: [id], onDelete: Cascade)
+  customer    Customer  @relation(fields: [cuid], references: [cuid], onDelete: Cascade)
+
+  @@id([exportJobId, cuid])
+}
+
+model ImportJob {
+  id               String    @id @default(cuid())
+  status           String
+  fileName         String
+  filePath         String?
+  country          String
+  provider         String
+  /// 欄位對照（表頭字串 → skip | merge targetKey | new）；null 表示沿用全自動對照
+  columnMapping    Json?
+  totalRows        Int       @default(0)
+  processedRows    Int       @default(0)
+  successRows      Int       @default(0)
+  failedRows       Int       @default(0)
+  chunkSize        Int       @default(5000)
+  checkpointChunk  Int       @default(0)
+  canRetry         Boolean   @default(false)
+  mode             String    @default("async_chunked")
+  queueJobId       String?
+  insertedCount    Int?
+  errorPrimary     String?
+  errorRowNumbers  Json?
+  errorCount       Int       @default(0)
+  errorReportPath  String?
+  createdAt        DateTime  @default(now())
+  finishedAt       DateTime?
+}
+
+model FieldGroup {
+  id        String   @id @default(cuid())
+  name      String
+  color     String
+  isSystem  Boolean  @default(false)
+  sortOrder Int      @default(0)
+  fields    FieldDefinition[]
+}
+
+model FieldDefinition {
+  id          String     @id @default(cuid())
+  key         String     @unique
+  name        String
+  /// 資料管理欄位標籤列顏色（Tailwind 類名）
+  uiColor     String     @default("bg-gray-500")
+  type        String
+  category    String     @default("")
+  /// 匯入表頭同義詞/別名（用於智能對應）
+  aliases     Json       @default("[]")
+  /// 欄位來源：system/manual/import
+  source      String     @default("manual")
+  isRequired  Boolean    @default(false)
+  isSystem    Boolean    @default(false)
+  defaultVisible Boolean @default(true)
+  /// 是否允許匯出（有些內部欄位可關閉）
+  isExportable Boolean   @default(true)
+  sortOrder   Int        @default(0)
+  groupId     String?
+  /// dynamic / promoted；固定欄位升級流程持續補齊中
+  storageMode String     @default("dynamic")
+  /// none / queued / rules-confirmed / pending-maintenance / scheduled-on-restart / applying / applied / failed
+  promotionStatus String @default("none")
+  promotionJobId String?
+  promotionSourceHeader String?
+  promotionRules Json?
+  promotionPlan Json?
+  promotionUpdatedAt DateTime?
+  group       FieldGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
+
+  @@index([promotionStatus, sortOrder])
+}
+
+model JobQueue {
+  id              String   @id @default(cuid())
+  source          String
+  type            String
+  status          String   @default("queued")
+  payload         Json
+  title           String
+  subtitle        String   @default("")
+  dedupeKey       String?
+  progressTotal   Int      @default(0)
+  progressDone    Int      @default(0)
+  queuePosition   Int      @default(0)
+  estimatedWaitSec Int     @default(0)
+  message         String?
+  error           String?
+  result          Json?
+  attempt         Int      @default(0)
+  maxAttempts     Int      @default(3)
+  startedAt       DateTime?
+  finishedAt      DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([source, status, createdAt])
+  @@index([type, status, createdAt])
+  @@index([dedupeKey, status])
+}
+
+model RemarkEvent {
+  id          String   @id @default(cuid())
+  cuid        String
+  fieldKey    String
+  fieldName   String
+  value       String
+  operator    String   @default("set")
+  actor       String   @default("system")
+  createdAt   DateTime @default(now())
+  customer    Customer @relation(fields: [cuid], references: [cuid], onDelete: Cascade)
+
+  @@index([cuid, createdAt])
+  @@index([fieldKey, createdAt])
+}

@@ -1,90 +1,56 @@
-import React, { useState } from 'react';
-import { Search, Eye, Trash2, FileText, Download, RefreshCw } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Search, RefreshCw, FileText, Trash2, Navigation } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-
-interface ImportRecord {
-  id: string;
-  fileName: string;
-  fileType: string;
-  createdDate: string;
-  createdTime: string;
-  status: 'completed' | 'processing' | 'failed';
-  country: string;
-  company: string;
-  totalRows: number;
-  columns: string[];
-  description?: string;
-  size?: string;
-}
-
-const mockImportRecords: ImportRecord[] = [
-  {
-    id: '1',
-    fileName: '員工資料_2024Q1.xlsx',
-    fileType: 'Excel',
-    createdDate: '2024-01-15',
-    createdTime: '14:30:25',
-    status: 'completed',
-    country: '台灣',
-    company: '人事部',
-    totalRows: 150,
-    columns: ['姓名', '年齡', '部位', '+2 個欄位'],
-    description: '更新命名欄位：姓名 → 姓名_2',
-    size: '專案資料'
-  },
-  {
-    id: '2',
-    fileName: '客戶清單.csv',
-    fileType: 'CSV',
-    createdDate: '2024-01-12',
-    createdTime: '09:15:30',
-    status: 'completed',
-    country: '美國',
-    company: '招商公司',
-    totalRows: 89,
-    columns: ['客戶名稱', '聯絡電話', '地址', '業務代表'],
-    description: '備註：第一季度客戶資料匯入'
-  },
-  {
-    id: '3',
-    fileName: '產品庫存_2024Q1.xlsx',
-    fileType: 'Excel',
-    createdDate: '2024-01-10',
-    createdTime: '16:45:12',
-    status: 'processing',
-    country: '日本',
-    company: '公司',
-    totalRows: 0,
-    columns: ['產品編號', '產品名稱', '庫存數量', '價格'],
-    description: ''
-  }
-];
+import {
+  deleteImportJob,
+  fetchImportJobs,
+  IMPORT_QUICK_FILTER_KEY,
+  OPEN_MODULE_EVENT,
+  retryImportJob,
+  type ImportJobItem,
+} from '@/lib/dmsApi';
+import { toast } from 'sonner';
 
 export const ImportRecordsPage: React.FC = () => {
-  const [records] = useState(mockImportRecords);
+  const [records, setRecords] = useState<ImportJobItem[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [countryFilter, setCountryFilter] = useState('所有國家');
   const [providerFilter, setProviderFilter] = useState('所有提供者');
   const [statusFilter, setStatusFilter] = useState('所有狀態');
-  const [showRefreshMessage, setShowRefreshMessage] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  // 统计数据
-  const stats = {
+  const load = async () => {
+    setLoading(true);
+    try {
+      const res = await fetchImportJobs();
+      setRecords(res.items);
+    } catch {
+      toast.error('載入匯入工作失敗');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void load();
+    const timer = window.setInterval(() => {
+      void load();
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const stats = useMemo(() => ({
     completed: records.filter(r => r.status === 'completed').length,
     processing: records.filter(r => r.status === 'processing').length,
-    totalExports: records.reduce((sum, r) => sum + r.totalRows, 0),
+    totalExports: records.reduce((sum, r) => sum + (r.successRows || 0), 0),
     totalFiles: records.length,
-    totalSize: '3.1MB',
-    totalRows: records.filter(r => r.status === 'completed').reduce((sum, r) => sum + r.totalRows, 0)
-  };
-
-  const handleAction = (action: string, recordId: string) => {
-    console.log(`Action: ${action}, Record ID: ${recordId}`);
-  };
+    totalSize: `${records.length} job`,
+    totalRows: records.reduce((sum, r) => sum + (r.totalRows || 0), 0)
+  }), [records]);
 
   const handleResetFilters = () => {
     setSearchTerm('');
@@ -93,17 +59,41 @@ export const ImportRecordsPage: React.FC = () => {
     setStatusFilter('所有狀態');
   };
 
-  const filteredRecords = records.filter(record =>
-    record.fileName.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const handleRefresh = () => {
-    setShowRefreshMessage(true);
-    // 3秒后自动隐藏提示
-    setTimeout(() => {
-      setShowRefreshMessage(false);
-    }, 3000);
+  const handleQuickNavigate = (record: ImportJobItem) => {
+    localStorage.setItem(
+      IMPORT_QUICK_FILTER_KEY,
+      JSON.stringify({
+        country: record.country,
+        provider: record.provider,
+        importRecord: String(record.createdAt || "").slice(0, 10),
+      })
+    );
+    window.dispatchEvent(new CustomEvent(OPEN_MODULE_EVENT, { detail: { module: "data-management" } }));
+    toast.success('已切換到資料管理並套用匯入篩選');
   };
+
+  const handleDeleteImport = async (record: ImportJobItem) => {
+    if (record.status === "processing") {
+      toast.warning("進行中的匯入不可刪除，請先等待完成或失敗");
+      return;
+    }
+    if (!window.confirm(`確定刪除這次匯入？\n- 會刪除匯入檔案與匯入紀錄\n- 會嘗試刪除本次匯入的資料\n- 已編輯過資料將自動略過\n\n${record.fileName}`)) return;
+    try {
+      const ret = await deleteImportJob(record.id);
+      toast.success(`已刪除匯入紀錄（刪除 ${ret.deletedRows} 筆，略過 ${ret.skippedEditedRows} 筆已編輯資料）`);
+      await load();
+    } catch {
+      toast.error('刪除失敗');
+    }
+  };
+
+  const filteredRecords = records.filter((record) => {
+    if (searchTerm && !record.fileName.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+    if (countryFilter !== '所有國家' && record.country !== countryFilter) return false;
+    if (providerFilter !== '所有提供者' && record.provider !== providerFilter) return false;
+    if (statusFilter !== '所有狀態' && record.status !== statusFilter) return false;
+    return true;
+  });
 
   return (
     <div className="space-y-6">
@@ -126,21 +116,13 @@ export const ImportRecordsPage: React.FC = () => {
                   <SelectItem value="本月">本月</SelectItem>
                 </SelectContent>
               </Select>
-              <Button variant="outline" size="sm" onClick={handleRefresh}>
-                <RefreshCw className="w-4 h-4" />
+              <Button variant="outline" size="sm" onClick={() => void load()} disabled={loading}>
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
               </Button>
             </div>
           </div>
 
-          {/* 刷新提示消息区域 - 预留空间避免抖动 */}
-          <div className="mb-4 h-12">
-            {showRefreshMessage && (
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2">
-                <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                <span className="text-sm text-blue-700">顯示範圍：全部 （2 筆記錄）</span>
-              </div>
-            )}
-          </div>
+          <div className="mb-4 h-6 text-xs text-gray-500">每 5 秒自動更新匯入進度</div>
 
           <div className="grid grid-cols-3 gap-4">
             <Card className="p-4 text-center">
@@ -223,9 +205,10 @@ export const ImportRecordsPage: React.FC = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="所有狀態">所有狀態</SelectItem>
-                  <SelectItem value="已完成">已完成</SelectItem>
-                  <SelectItem value="進行中">進行中</SelectItem>
-                  <SelectItem value="錯誤">錯誤</SelectItem>
+                  <SelectItem value="completed">completed</SelectItem>
+                  <SelectItem value="processing">processing</SelectItem>
+                  <SelectItem value="failed">failed</SelectItem>
+                  <SelectItem value="queued">queued</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -243,7 +226,7 @@ export const ImportRecordsPage: React.FC = () => {
         </Card>
       </div>
 
-      {/* 汇入记录 */}
+      {/* 匯入記錄 */}
       <Card>
         <div className="p-4 border-b flex items-center justify-between">
           <h2 className="text-lg font-semibold">匯入記錄</h2>
@@ -260,39 +243,39 @@ export const ImportRecordsPage: React.FC = () => {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <h3 className="font-medium text-gray-900">{record.fileName}</h3>
-                      <Badge
-                        variant={record.fileType === 'Excel' ? 'default' : 'secondary'}
-                        className={record.fileType === 'Excel' ? 'bg-green-600 text-white' : 'bg-blue-600 text-white'}
-                      >
-                        {record.fileType}
-                      </Badge>
+                      <Badge variant="secondary" className="bg-gray-200 text-gray-700">job</Badge>
                       {record.status === 'processing' && (
                         <Badge variant="secondary" className="bg-orange-100 text-orange-700">
-                          備份暫未完成
+                          分段寫入中
                         </Badge>
                       )}
                     </div>
                     <div className="text-sm text-gray-500 space-y-1">
                       <div className="flex items-center gap-4">
-                        <span>{record.createdDate} {record.createdTime}</span>
+                        <span>{new Date(record.createdAt).toLocaleString()}</span>
                         <span>{record.country}</span>
-                        <span>{record.company}</span>
-                        {record.status === 'completed' && <span>{record.totalRows} 筆資料</span>}
+                        <span>{record.provider}</span>
+                        <span>{record.successRows}/{record.totalRows} 筆</span>
                       </div>
-                      <div className="flex items-center gap-1">
-                        {record.columns.map((col, index) => (
-                          <span key={index}>{col}{index < record.columns.length - 1 ? ', ' : ''}</span>
-                        ))}
+                      <div className="flex items-center gap-1 text-xs">
+                        chunk#{record.checkpointChunk} / size {record.chunkSize}
+                        {record.errorPrimary ? ` · ${record.errorPrimary}` : ''}
                       </div>
-                      {record.description && (
-                        <div className="text-orange-600">{record.description}</div>
-                      )}
                     </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 ml-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleQuickNavigate(record)}
+                    className="gap-1"
+                  >
+                    <Navigation className="w-3.5 h-3.5" />
+                    快速篩選
+                  </Button>
                   {record.status === 'completed' && (
-                    <Badge variant="secondary" className="bg-green-50 text-green-700">
+                      <Badge variant="secondary" className="bg-green-50 text-green-700">
                       已完成
                     </Badge>
                   )}
@@ -302,23 +285,32 @@ export const ImportRecordsPage: React.FC = () => {
                         進行中
                       </Badge>
                       <div className="w-24 h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div className="h-full bg-gray-800 rounded-full animate-pulse" style={{ width: '60%' }}></div>
+                        <div
+                          className="h-full bg-gray-800 rounded-full animate-pulse"
+                          style={{ width: `${record.totalRows ? Math.min(100, Math.floor((record.processedRows / record.totalRows) * 100)) : 10}%` }}
+                        />
                       </div>
                     </div>
                   )}
-                  {record.status !== 'processing' && (
-                    <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="sm" onClick={() => handleAction('view', record.id)}>
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleAction('download', record.id)}>
-                        <Download className="w-4 h-4" />
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => handleAction('delete', record.id)}>
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
+                  {record.status === 'failed' && record.canRetry && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => void retryImportJob(record.id).then(() => { toast.success('已重試'); void load(); })}
+                    >
+                      重試
+                    </Button>
                   )}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1 text-red-700 border-red-200 hover:bg-red-50"
+                    onClick={() => void handleDeleteImport(record)}
+                    disabled={record.status === 'processing'}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    刪除
+                  </Button>
                 </div>
               </div>
             </div>

@@ -21,7 +21,11 @@ export const Layout: React.FC<LayoutProps> = ({
   return (
     <div className="flex flex-col h-screen dark:bg-gray-900">
       {/* 顶部 Header */}
-      <Header title={title} />
+      <Header
+        title={title}
+        onOpenTaskCenter={() => onModuleChange("task-center")}
+        onOpenModule={onModuleChange}
+      />
 
       {/* 中间内容区域 - 侧边栏 + 主内容 */}
       <div className="flex flex-1 overflow-hidden">

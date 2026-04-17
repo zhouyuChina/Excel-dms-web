@@ -16,9 +16,12 @@ export interface RecordData {
   exportRecord: string;
   recipient: string;
   isError: boolean;
+  attrs?: Record<string, unknown>;
 }
 
 export interface FilterTag {
+  id?: string;
+  key: string;
   name: string;
   color: string;
   visible: boolean;
@@ -26,21 +29,21 @@ export interface FilterTag {
 
 // 筛选标签配置
 export const filterTagsData: FilterTag[] = [
-  { name: "CUID", color: "bg-blue-500", visible: true },
-  { name: "國家", color: "bg-green-500", visible: true },
-  { name: "提供者", color: "bg-yellow-500", visible: true },
-  { name: "電話號碼", color: "bg-purple-500", visible: true },
-  { name: "姓名", color: "bg-red-500", visible: true },
-  { name: "英文姓名", color: "bg-indigo-500", visible: false },
-  { name: "年齡", color: "bg-pink-500", visible: false },
-  { name: "出生日期", color: "bg-orange-500", visible: false },
-  { name: "職位", color: "bg-teal-500", visible: false },
-  { name: "薪資", color: "bg-cyan-500", visible: false },
-  { name: "電子郵件", color: "bg-emerald-500", visible: false },
-  { name: "部門", color: "bg-slate-500", visible: false },
-  { name: "匯入紀錄", color: "bg-violet-500", visible: false },
-  { name: "匯出紀錄", color: "bg-rose-500", visible: false },
-  { name: "接收者", color: "bg-amber-500", visible: false },
+  { key: "cuid", name: "CUID", color: "bg-blue-500", visible: true },
+  { key: "country", name: "國家", color: "bg-green-500", visible: true },
+  { key: "provider", name: "提供者", color: "bg-yellow-500", visible: true },
+  { key: "phone", name: "電話號碼", color: "bg-purple-500", visible: true },
+  { key: "name", name: "姓名", color: "bg-red-500", visible: true },
+  { key: "englishName", name: "英文姓名", color: "bg-indigo-500", visible: false },
+  { key: "age", name: "年齡", color: "bg-pink-500", visible: false },
+  { key: "birthDate", name: "出生日期", color: "bg-orange-500", visible: false },
+  { key: "position", name: "職位", color: "bg-teal-500", visible: false },
+  { key: "salary", name: "薪資", color: "bg-cyan-500", visible: false },
+  { key: "email", name: "電子郵件", color: "bg-emerald-500", visible: false },
+  { key: "department", name: "部門", color: "bg-slate-500", visible: false },
+  { key: "importRecord", name: "匯入紀錄", color: "bg-violet-500", visible: false },
+  { key: "exportRecord", name: "匯出紀錄", color: "bg-rose-500", visible: false },
+  { key: "recipient", name: "接收者", color: "bg-amber-500", visible: false },
 ];
 
 // 模拟数据

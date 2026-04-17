@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import { authLogin } from "@/lib/dmsApi";
 
 export default function Login() {
   const nav = useNavigate();
@@ -12,49 +13,19 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Mock 数据 - 默认账号密码
-  const mockUsers = [
-    { username: "admin", password: "admin123", role: "管理员" },
-    { username: "user", password: "user123", role: "普通用户" }
-  ];
-  
-  const useMockData = true; // 开关，控制是否使用mock数据
-
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     try {
-      // 使用 mock 数据进行验证
-      if (useMockData) {
-        const matchedUser = mockUsers.find(
-          user => user.username === username && user.password === password
-        );
-        
-        if (matchedUser) {
-          // 模拟生成token并存储
-          const mockToken = `mock_token_${matchedUser.username}_${Date.now()}`;
-          localStorage.setItem("token", mockToken);
-          localStorage.setItem("userRole", matchedUser.role);
-          toast.success(`登录成功，欢迎 ${matchedUser.role}！`);
-          nav("/home");
-        } else {
-          throw new Error("用户名或密码错误");
-        }
-      } else {
-        // 原有的API调用逻辑
-        const res = await fetch("/api/auth/login", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username, password }),
-        });
-        if (!res.ok) throw new Error(await res.text());
-        const data = await res.json();
-        localStorage.setItem("token", data.access_token);
-        toast.success("登录成功");
-        nav("/home");
-      }
-    } catch (err: any) {
-      toast.error(err?.message || "登录失败");
+      const data = await authLogin(username.trim(), password);
+      localStorage.setItem("token", data.access_token);
+      localStorage.setItem("refreshToken", data.refresh_token);
+      localStorage.setItem("userRole", data.user.role);
+      localStorage.setItem("username", data.user.username);
+      toast.success(`登入成功：${data.user.username} (${data.user.role})`);
+      nav("/home");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "登入失敗");
     } finally {
       setLoading(false);
     }
@@ -64,12 +35,12 @@ export default function Login() {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">企业资料管理系统</h1>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">企業資料管理系統</h1>
           <p className="text-gray-600 dark:text-gray-400">Powered by Excel - Enterprise Data Management</p>
         </div>
         <Card className="shadow-lg border-0 overflow-hidden">
           <CardHeader className="bg-gradient-to-r from-gray-800 to-gray-900 text-white">
-            <CardTitle className="text-xl font-semibold">用户登录</CardTitle>
+            <CardTitle className="text-xl font-semibold">用戶登錄</CardTitle>
           </CardHeader>
           <CardContent className="p-6">
             <form className="space-y-5" onSubmit={onSubmit}>
@@ -79,18 +50,18 @@ export default function Login() {
                   id="username" 
                   value={username} 
                   onChange={(e) => setUsername(e.target.value)} 
-                  placeholder="请输入用户名"
+                  placeholder="請輸入用戶名"
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white transition-all"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-gray-700 dark:text-gray-300">密码</Label>
+                <Label htmlFor="password" className="text-gray-700 dark:text-gray-300">密碼</Label>
                 <Input 
                   id="password" 
                   type="password" 
                   value={password} 
                   onChange={(e) => setPassword(e.target.value)} 
-                  placeholder="请输入密码"
+                  placeholder="請輸入密碼"
                   className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white transition-all"
                 />
               </div>
@@ -99,7 +70,7 @@ export default function Login() {
                 type="submit" 
                 disabled={loading}
               >
-                {loading ? "登录中..." : "登录"}
+                {loading ? "登錄中..." : "登錄"}
               </Button>
             </form>
           </CardContent>

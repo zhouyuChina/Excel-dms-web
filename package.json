@@ -4,7 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "start": "node scripts/launch.mjs",
     "dev": "vite",
+    "dev:api": "npm run dev --prefix server",
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint .",
