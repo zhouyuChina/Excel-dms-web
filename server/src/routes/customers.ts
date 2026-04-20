@@ -253,6 +253,7 @@ export function registerCustomers(app: Express, prisma: PrismaClient) {
   });
 
   app.get("/api/customers", async (req, res) => {
+   try {
     const queryStartedAt = Date.now();
     const pageSize = Math.min(200, Math.max(1, Number(req.query.pageSize) || 20));
     const exportStatus = String(req.query.exportStatus || "all");
@@ -589,6 +590,13 @@ export function registerCustomers(app: Express, prisma: PrismaClient) {
       queryMode,
       queryElapsedMs,
     });
+   } catch (err: unknown) {
+    console.error("[customers.list] unhandled error:", err);
+    const message = err instanceof Error ? err.message : String(err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: "query_failed", message });
+    }
+   }
   });
 
   app.patch("/api/customers/:cuid", async (req, res) => {

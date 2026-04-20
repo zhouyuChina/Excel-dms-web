@@ -496,7 +496,7 @@ export const DataManagementPage: React.FC = () => {
 
   const prevResetSig = useRef<string>("");
   useEffect(() => {
-    const sig = `${debouncedQ}|${exportStatusFilter}|${pageSize}|${filtersKey}`;
+    const sig = `${debouncedQ}|${exportStatusFilter}|${pageSize}|${filtersKey}|${sortField}|${sortDirection}`;
     if (prevResetSig.current !== "" && prevResetSig.current !== sig) {
       setCurrentPage(1);
       setCursor(null);
@@ -504,7 +504,7 @@ export const DataManagementPage: React.FC = () => {
       setCursorStack([]);
     }
     prevResetSig.current = sig;
-  }, [debouncedQ, exportStatusFilter, pageSize, filtersKey]);
+  }, [debouncedQ, exportStatusFilter, pageSize, filtersKey, sortField, sortDirection]);
 
   // 检测最后一个标签是否完全可见
   useEffect(() => {
@@ -808,24 +808,26 @@ export const DataManagementPage: React.FC = () => {
     setHasActiveFilters(false);
   };
 
-  // 处理排序
+  // 处理排序（含 300ms 防連點）
+  const sortLockRef = useRef(false);
   const handleSort = (field: string) => {
+    if (sortLockRef.current) return;
     if (queryAllowedSorts.length && !queryAllowedSorts.includes(field)) {
       toast.warning("此欄位未納入高效索引排序白名單");
       return;
     }
+    sortLockRef.current = true;
+    setTimeout(() => { sortLockRef.current = false; }, 300);
+
     if (sortField !== field) {
-      // 第一次點該欄位：設定為升冪
       setSortField(field);
       setSortDirection('asc');
       return;
     }
     if (sortDirection === 'asc') {
-      // 第二次點同一欄位：改為降冪
       setSortDirection('desc');
       return;
     }
-    // 第三次點同一欄位：取消排序（恢復預設順序）
     setSortField('');
     setSortDirection('asc');
   };

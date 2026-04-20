@@ -7,7 +7,7 @@ set "ROOT=%~dp0"
 set "NODE=%ROOT%node\node.exe"
 set "PGBIN=%ROOT%pgsql\bin"
 set "PGDATA=%ROOT%pgdata"
-set "PGPORT=5433"
+set "PGPORT=5500"
 
 echo.
 echo  ==========================================
