@@ -150,6 +150,13 @@ export async function runFieldPromotionQueueJob(prisma: PrismaClient, jobId: str
             `CREATE INDEX IF NOT EXISTS ${quotedIndex} ON "Customer" (${quotedColumn})`
           );
         }
+        if (field.rules.enableSort) {
+          const compIdxName = `${columnName}_cuid_idx`.slice(0, 63);
+          const quotedCompIdx = quoteIdentifier(compIdxName);
+          await prisma.$executeRawUnsafe(
+            `CREATE INDEX IF NOT EXISTS ${quotedCompIdx} ON "Customer" (${quotedColumn}, "cuid")`
+          );
+        }
         const backfilledRows = await prisma.$executeRawUnsafe(
           `UPDATE "Customer" SET ${quotedColumn} = COALESCE(NULLIF(attrs->>'${quotedSourceKey}', ''), ${quotedColumn}) WHERE attrs ? '${quotedSourceKey}'`
         );
