@@ -363,26 +363,18 @@ export function registerCustomers(app: Express, prisma: PrismaClient) {
     const usePromotedSqlPath =
       (Boolean(promotedSortKey) || hasPromotedInFilter) && !hasNonPromotedDynamicFilter;
     const queryMode = usePromotedSqlPath ? "promoted-sql-keyset" : "prisma-keyset";
+    // All columns in CUSTOMER_SORTABLE are NOT NULL in the schema,
+    // so keyset cursor never needs { column: null } branches.
     const valueCursorWhere: Prisma.CustomerWhereInput | null =
       decodedCursor === null
         ? null
         : decodedCursor.nullSort
-          ? sortDir === "desc"
-            ? ({
-                OR: [
-                  { AND: [{ [sortColumn]: null }, { cuid: { gt: decodedCursor.lastCuid } }] },
-                  { NOT: { [sortColumn]: null } },
-                ],
-              } as Prisma.CustomerWhereInput)
-            : ({
-                AND: [{ [sortColumn]: null }, { cuid: { gt: decodedCursor.lastCuid } }],
-              } as Prisma.CustomerWhereInput)
+          ? { cuid: { gt: decodedCursor.lastCuid } }
           : sortDir === "asc"
             ? {
                 OR: [
                   { [sortColumn]: { gt: decodedCursor.lastValue } },
                   { [sortColumn]: decodedCursor.lastValue, cuid: { gt: decodedCursor.lastCuid } },
-                  { [sortColumn]: null },
                 ],
               }
             : {

@@ -58,7 +58,7 @@ export const FieldManagementPage: React.FC = () => {
     type: "文字" as "文字" | "數字" | "日期" | "電子郵件" | "電話",
     allowNull: true,
     enableFilter: true,
-    enableSort: false,
+    enableSort: true,
     writeAliases: true,
     purgeAttrsAfterPromotion: true,
     note: "",
@@ -309,9 +309,10 @@ export const FieldManagementPage: React.FC = () => {
     try {
       setCleanupApplying(true);
       await applyFieldPromotionCleanup(promotionTaskId);
-      const detail = await fetchFieldPromotionJob(promotionTaskId);
-      setPromotionDetail(detail);
       toast.success("已套用 attrs 清理");
+      setPromotionDialogOpen(false);
+      await refreshPromotionTasks();
+      await load();
     } catch (e) {
       toast.error(formatApiThrownError(e, "套用 attrs 清理失敗"));
     } finally {
