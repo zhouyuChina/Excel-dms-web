@@ -202,7 +202,20 @@ export function registerCustomers(app: Express, prisma: PrismaClient) {
     }
   }
 
-  app.get("/api/customers/query-contract", (_req, res) => {
+  app.get("/api/customers/query-contract", async (_req, res) => {
+    const promotedSortKeys: string[] = await fieldDefinitionRepo
+      .findMany({
+        where: { storageMode: "promoted", promotionStatus: "applied" },
+        select: { key: true, promotionRules: true },
+      })
+      .then((rows: Array<{ key: string; promotionRules: any }>) =>
+        rows
+          .filter((r) => r.promotionRules?.enableSort)
+          .map((r) => r.key)
+      )
+      .catch(() => [] as string[]);
+    const allSortable = [...new Set([...QUERY_SORT_WHITELIST, ...promotedSortKeys])];
+    const allFilterable = [...new Set([...FILTERABLE_FIELD_KEYS, ...promotedSortKeys])];
     res.json({
       pagination: {
         mode: "keyset",
@@ -214,10 +227,10 @@ export function registerCustomers(app: Express, prisma: PrismaClient) {
       sorting: {
         defaultField: DEFAULT_SORT_FIELD,
         defaultDirection: "desc",
-        allowedFields: QUERY_SORT_WHITELIST,
+        allowedFields: allSortable,
       },
       filters: {
-        allowedFields: FILTERABLE_FIELD_KEYS,
+        allowedFields: allFilterable,
         operators: ["等於", "不等於", "包含", "不包含", "大於", "小於"],
       },
     });
