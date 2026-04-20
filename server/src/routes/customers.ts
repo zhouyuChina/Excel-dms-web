@@ -206,13 +206,9 @@ export function registerCustomers(app: Express, prisma: PrismaClient) {
     const promotedSortKeys: string[] = await fieldDefinitionRepo
       .findMany({
         where: { storageMode: "promoted", promotionStatus: "applied" },
-        select: { key: true, promotionRules: true },
+        select: { key: true },
       })
-      .then((rows: Array<{ key: string; promotionRules: any }>) =>
-        rows
-          .filter((r) => r.promotionRules?.enableSort)
-          .map((r) => r.key)
-      )
+      .then((rows: Array<{ key: string }>) => rows.map((r) => r.key))
       .catch(() => [] as string[]);
     const allSortable = [...new Set([...QUERY_SORT_WHITELIST, ...promotedSortKeys])];
     const allFilterable = [...new Set([...FILTERABLE_FIELD_KEYS, ...promotedSortKeys])];
